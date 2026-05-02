@@ -5,10 +5,11 @@ import Date exposing (Date)
 import Domain.Booking as Booking exposing (BookingIntent, DateRange, GuestCount)
 import Domain.Catalog as Catalog exposing (Catalog)
 import Domain.Listing as Listing exposing (Listing, ListingId)
-import Html exposing (Html, a, code, div, h1, input, label, option, p, select, text)
-import Html.Attributes as Attr exposing (class, href, rel, selected, target, type_, value)
-import Html.Events exposing (onInput)
+import Html exposing (Html, a, button, code, div, h1, h2, input, label, option, p, select, text, textarea)
+import Html.Attributes as Attr exposing (class, href, placeholder, rel, rows, selected, target, type_, value)
+import Html.Events exposing (onClick, onInput)
 import Http
+import Parse.Heuristic as Heuristic exposing (PartialQuery)
 import Task
 import Url.AirbnbDeepLink as DeepLink
 
@@ -22,6 +23,7 @@ type Loadable a
 type alias Model =
     { catalog : Loadable Catalog
     , today : Maybe Date
+    , prompt : String
     , selectedListing : Maybe ListingId
     , checkIn : String
     , checkOut : String
@@ -35,6 +37,7 @@ type alias Model =
 type Msg
     = GotCatalog (Result Http.Error Catalog)
     | GotToday Date
+    | ChangedPrompt String
     | SelectedListing String
     | ChangedCheckIn String
     | ChangedCheckOut String
@@ -48,6 +51,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( { catalog = LoadingNow
       , today = Nothing
+      , prompt = ""
       , selectedListing = Nothing
       , checkIn = ""
       , checkOut = ""
@@ -78,6 +82,9 @@ update msg model =
         GotToday today ->
             ( { model | today = Just today }, Cmd.none )
 
+        ChangedPrompt raw ->
+            ( applyPrompt raw model, Cmd.none )
+
         SelectedListing raw ->
             ( { model | selectedListing = nonEmpty raw |> Maybe.map Listing.idFromString }, Cmd.none )
 
@@ -98,6 +105,75 @@ update msg model =
 
         ChangedPets raw ->
             ( { model | pets = parseIntOr model.pets raw }, Cmd.none )
+
+
+applyPrompt : String -> Model -> Model
+applyPrompt raw model =
+    let
+        modelWithPrompt =
+            { model | prompt = raw }
+    in
+    Maybe.map2 Tuple.pair model.today (catalogValue model.catalog)
+        |> Maybe.map (\( today, catalog ) -> Heuristic.parse today catalog raw)
+        |> Maybe.map (applyPartial modelWithPrompt)
+        |> Maybe.withDefault modelWithPrompt
+
+
+applyPartial : Model -> PartialQuery -> Model
+applyPartial model partial =
+    { model
+        | selectedListing =
+            partial.destination
+                |> Maybe.andThen (\city -> findListingIdForCity city model.catalog)
+                |> orElse model.selectedListing
+        , checkIn =
+            partial.checkIn
+                |> Maybe.map Date.toIsoString
+                |> Maybe.withDefault model.checkIn
+        , checkOut =
+            partial.checkOut
+                |> Maybe.map Date.toIsoString
+                |> Maybe.withDefault model.checkOut
+        , adults = partial.adults |> Maybe.withDefault model.adults
+        , children = partial.children |> Maybe.withDefault model.children
+        , infants = partial.infants |> Maybe.withDefault model.infants
+        , pets = partial.pets |> Maybe.withDefault model.pets
+    }
+
+
+catalogValue : Loadable Catalog -> Maybe Catalog
+catalogValue loadable =
+    case loadable of
+        LoadingNow ->
+            Nothing
+
+        LoadFailed _ ->
+            Nothing
+
+        LoadDone catalog ->
+            Just catalog
+
+
+findListingIdForCity : String -> Loadable Catalog -> Maybe ListingId
+findListingIdForCity city loadable =
+    catalogValue loadable
+        |> Maybe.andThen
+            (\catalog ->
+                Catalog.all catalog
+                    |> List.filter (\l -> l.city == city)
+                    |> List.head
+                    |> Maybe.map .id
+            )
+
+
+orElse : Maybe a -> Maybe a -> Maybe a
+orElse fallback m =
+    case m of
+        Just _ ->
+            m
+
+        Nothing ->
+            fallback
 
 
 nonEmpty : String -> Maybe String
@@ -136,11 +212,12 @@ httpErrorToString err =
 view : Model -> Html Msg
 view model =
     div [ class "app" ]
-        [ h1 [] [ text "Airbnb Prompt Booker (Phase 0)" ]
+        [ h1 [] [ text "Airbnb Prompt Booker" ]
         , p []
-            [ text "Pick a listing, set dates and guests, then click "
+            [ text "Type a prompt to auto-fill the form, or use the form directly. "
+            , text "Click "
             , code [] [ text "Book on Airbnb" ]
-            , text " to land on the reservation page."
+            , text " to land on the listing's reservation page."
             ]
         , viewBody model
         ]
@@ -180,7 +257,10 @@ viewForm catalog today model =
             buildIntent today model selectedListing
     in
     div [ class "form" ]
-        [ label []
+        [ viewPromptArea model
+        , viewExamplesRow
+        , h2 [] [ text "Form" ]
+        , label []
             [ text "Listing"
             , select [ onInput SelectedListing ]
                 (option [ value "" ] [ text "Choose a property..." ]
@@ -211,6 +291,54 @@ viewForm catalog today model =
         , numberInput "Pets" model.pets ChangedPets
         , viewBookButton intentResult
         ]
+
+
+viewPromptArea : Model -> Html Msg
+viewPromptArea model =
+    label []
+        [ text "Describe your trip"
+        , textarea
+            [ placeholder "e.g. \"2 adults May 5-9 in Tulum, dog-friendly\""
+            , value model.prompt
+            , onInput ChangedPrompt
+            , rows 3
+            , class "prompt"
+            ]
+            []
+        ]
+
+
+examplePrompts : List String
+examplePrompts =
+    [ "2 adults May 5-9 in Tulum, dog-friendly"
+    , "Lisbon June 1-8 for two"
+    , "Barcelona June 15-22 for 2 adults and 2 children"
+    , "Kyoto Aug 10-15 just me, quiet workspace"
+    , "Chamonix Dec 20-28 with my dog"
+    , "couple to Tulum 2026-06-01 to 2026-06-08"
+    , "Tulum beachfront, two of us, Jul 10-15"
+    , "Lisbon city center for two, Sep 5-12"
+    , "Kyoto October 1-7, workspace needed"
+    , "solo to Barcelona May 1-7, pool"
+    ]
+
+
+viewExamplesRow : Html Msg
+viewExamplesRow =
+    div [ class "examples" ]
+        (Html.span [ class "examples-label" ] [ text "Try: " ]
+            :: List.map exampleButton examplePrompts
+        )
+
+
+exampleButton : String -> Html Msg
+exampleButton prompt =
+    button
+        [ onClick (ChangedPrompt prompt)
+        , class "example"
+        , type_ "button"
+        ]
+        [ text prompt ]
 
 
 viewListingOption : Maybe ListingId -> Listing -> Html Msg

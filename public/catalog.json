@@ -12,11 +12,11 @@
             "thumbnailUrl": ""
         },
         {
-            "id": "REPLACE_ME_TULUM",
-            "title": "Beachfront casita with hammock",
+            "id": "22295849",
+            "title": "Beachfront casita with hammock (stub metadata, real id)",
             "city": "Tulum",
             "country": "Mexico",
-            "maxGuests": 4,
+            "maxGuests": 8,
             "petsAllowed": true,
             "tags": ["beachfront", "pet-friendly", "wifi"],
             "thumbnailUrl": ""
