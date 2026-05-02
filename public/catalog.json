@@ -1,0 +1,65 @@
+{
+    "_note": "Phase 0 placeholder catalog. Replace each id with a real Airbnb numeric listing id (the digits in the /rooms/{id} URL) before testing the deep link end-to-end.",
+    "listings": [
+        {
+            "id": "REPLACE_ME_LISBON",
+            "title": "Sunny one-bedroom near the harbor",
+            "city": "Lisbon",
+            "country": "Portugal",
+            "maxGuests": 2,
+            "petsAllowed": false,
+            "tags": ["wifi", "city-center"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "REPLACE_ME_TULUM",
+            "title": "Beachfront casita with hammock",
+            "city": "Tulum",
+            "country": "Mexico",
+            "maxGuests": 4,
+            "petsAllowed": true,
+            "tags": ["beachfront", "pet-friendly", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "REPLACE_ME_KYOTO",
+            "title": "Quiet machiya in Higashiyama",
+            "city": "Kyoto",
+            "country": "Japan",
+            "maxGuests": 3,
+            "petsAllowed": false,
+            "tags": ["quiet", "wifi", "workspace"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "REPLACE_ME_CHAMONIX",
+            "title": "Mountain chalet with valley views",
+            "city": "Chamonix",
+            "country": "France",
+            "maxGuests": 6,
+            "petsAllowed": true,
+            "tags": ["mountain", "pet-friendly", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "REPLACE_ME_BARCELONA",
+            "title": "Modern flat in El Born with rooftop pool",
+            "city": "Barcelona",
+            "country": "Spain",
+            "maxGuests": 4,
+            "petsAllowed": false,
+            "tags": ["pool", "city-center", "wifi", "workspace"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "22295849",
+            "title": "Test listing (real id, used to verify URL builder)",
+            "city": "(varies)",
+            "country": "",
+            "maxGuests": 16,
+            "petsAllowed": true,
+            "tags": [],
+            "thumbnailUrl": ""
+        }
+    ]
+}
