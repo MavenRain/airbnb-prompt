@@ -86,27 +86,30 @@ test.beforeEach(async ({ page }) => {
     );
 });
 
-test("builds both corpora from exemplars and ontology", async ({ page }) => {
+test("builds exemplar, ontology, and listing corpora", async ({ page }) => {
     await routeFastEmbed(page);
     await page.goto("/");
 
-    await page.waitForFunction(() => (window.__embedCount || 0) >= 32, null, {
+    await page.waitForFunction(() => (window.__embedCount || 0) >= 47, null, {
         timeout: 15000,
     });
 
     const texts = await page.evaluate(() =>
         window.__embedTexts.map((e) => e.text)
     );
-    expect(texts.length).toBeGreaterThanOrEqual(32);
+    expect(texts.length).toBeGreaterThanOrEqual(47);
     expect(texts).toContain("long weekend in Lisbon for two in October");
     expect(texts).toContain("BCN means Barcelona");
+    expect(
+        texts.some((t) => t.startsWith("Modern machiya in central Kyoto in Kyoto"))
+    ).toBe(true);
 });
 
 test("retrieves top-K exemplars and ontology before slm dispatch", async ({ page }) => {
     await routeFastEmbed(page);
     await page.goto("/");
 
-    await page.waitForFunction(() => (window.__embedCount || 0) >= 32, null, {
+    await page.waitForFunction(() => (window.__embedCount || 0) >= 47, null, {
         timeout: 15000,
     });
 
@@ -132,6 +135,10 @@ test("retrieves top-K exemplars and ontology before slm dispatch", async ({ page
         .filter((l) => l.startsWith("- "));
     expect(ontologyLines.length).toBeGreaterThan(0);
     expect(ontologyLines.length).toBeLessThanOrEqual(6);
+
+    const cardCount = await page.locator(".listing-card").count();
+    expect(cardCount).toBeGreaterThan(0);
+    expect(cardCount).toBeLessThanOrEqual(5);
 });
 
 test("falls back to full lists when corpora are not yet ready", async ({ page }) => {
@@ -139,7 +146,7 @@ test("falls back to full lists when corpora are not yet ready", async ({ page })
     await page.goto("/");
 
     await page.waitForFunction(
-        () => (window.__pendingEmbeds || []).length >= 32,
+        () => (window.__pendingEmbeds || []).length >= 47,
         null,
         { timeout: 15000 }
     );

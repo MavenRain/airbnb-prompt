@@ -96,7 +96,9 @@ type alias Model =
     , pendingPrompt : Maybe String
     , exemplarCorpus : Corpus Exemplar
     , ontologyCorpus : Corpus OntologyEntry
+    , listingCorpus : Corpus Listing
     , promptEmbed : PromptEmbed
+    , promptVector : Maybe Rag.Vector
     , embedCounter : Int
     }
 
@@ -144,7 +146,9 @@ init _ =
       , pendingPrompt = Nothing
       , exemplarCorpus = CorpusEmpty
       , ontologyCorpus = CorpusEmpty
+      , listingCorpus = CorpusEmpty
       , promptEmbed = PromptEmbedIdle
+      , promptVector = Nothing
       , embedCounter = 0
       }
     , Cmd.batch
@@ -173,7 +177,11 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotCatalog (Ok catalog) ->
-            ( { model | catalog = LoadDone catalog }, Cmd.none )
+            startCorpusBuild
+                (Catalog.all catalog)
+                listingToText
+                setListingCorpus
+                { model | catalog = LoadDone catalog }
 
         GotCatalog (Err err) ->
             ( { model | catalog = LoadFailed (httpErrorToString err) }, Cmd.none )
@@ -296,6 +304,7 @@ applyHeuristicAndDispatch raw partial model =
             , datesFromSlm = False
             , slmLastError = Nothing
             , mergedPartial = Nothing
+            , promptVector = Nothing
           }
         , Cmd.none
         )
@@ -531,6 +540,22 @@ setOntologyCorpus c m =
     { m | ontologyCorpus = c }
 
 
+setListingCorpus : Corpus Listing -> Model -> Model
+setListingCorpus c m =
+    { m | listingCorpus = c }
+
+
+listingToText : Listing -> String
+listingToText l =
+    l.title
+        ++ " in "
+        ++ l.city
+        ++ ", "
+        ++ l.country
+        ++ ". Features: "
+        ++ String.join ", " (List.map Listing.tagToString l.tags)
+
+
 handleEmbedResponse : Result String Embed.Response -> Model -> ( Model, Cmd Msg )
 handleEmbedResponse result model =
     case result of
@@ -584,7 +609,7 @@ firePromptWithRetrieval vector prompt partial model =
         ontology =
             retrieveFromCorpus topKOntology vector model.ontologyCorpus model.ontology
     in
-    fireSlmRequestWith exemplars ontology prompt partial model
+    fireSlmRequestWith exemplars ontology prompt partial { model | promptVector = Just vector }
 
 
 retrieveFromCorpus : Int -> Rag.Vector -> Corpus a -> List a -> List a
@@ -608,6 +633,7 @@ advanceCorpora id vector model =
     model
         |> advanceExemplarCorpus id vector
         |> advanceOntologyCorpus id vector
+        |> advanceListingCorpus id vector
 
 
 advanceExemplarCorpus : Int -> Rag.Vector -> Model -> Model
@@ -631,6 +657,22 @@ advanceOntologyCorpus id vector model =
     case model.ontologyCorpus of
         CorpusBuilding state ->
             setOntologyCorpus (advanceBuilding id vector state) model
+
+        CorpusEmpty ->
+            model
+
+        CorpusReady _ ->
+            model
+
+        CorpusFailed _ ->
+            model
+
+
+advanceListingCorpus : Int -> Rag.Vector -> Model -> Model
+advanceListingCorpus id vector model =
+    case model.listingCorpus of
+        CorpusBuilding state ->
+            setListingCorpus (advanceBuilding id vector state) model
 
         CorpusEmpty ->
             model
@@ -669,6 +711,7 @@ failEmbedById id err model =
         |> clearPromptEmbedIfMatch id
         |> failExemplarCorpusIfPending id err
         |> failOntologyCorpusIfPending id err
+        |> failListingCorpusIfPending id err
 
 
 clearPromptEmbedIfMatch : Int -> Model -> Model
@@ -707,6 +750,26 @@ failOntologyCorpusIfPending id err model =
         CorpusBuilding state ->
             if Dict.member id state.pending then
                 setOntologyCorpus (CorpusFailed err) model
+
+            else
+                model
+
+        CorpusEmpty ->
+            model
+
+        CorpusReady _ ->
+            model
+
+        CorpusFailed _ ->
+            model
+
+
+failListingCorpusIfPending : Int -> String -> Model -> Model
+failListingCorpusIfPending id err model =
+    case model.listingCorpus of
+        CorpusBuilding state ->
+            if Dict.member id state.pending then
+                setListingCorpus (CorpusFailed err) model
 
             else
                 model
@@ -938,9 +1001,7 @@ viewListingCards catalog model =
             model.mergedPartial |> Maybe.map filtersFromPartial
 
         ranked =
-            filters
-                |> Maybe.map (\f -> Catalog.matchAgainst f catalog)
-                |> Maybe.withDefault (Catalog.all catalog)
+            rankListings catalog model filters
 
         showingFallback =
             isJust filters && List.isEmpty ranked
@@ -968,6 +1029,30 @@ viewListingCards catalog model =
         , div [ class "listing-cards" ]
             (List.map (viewResultCard model.selectedListing) cards)
         ]
+
+
+rankListings : Catalog -> Model -> Maybe Catalog.Filters -> List Listing
+rankListings catalog model maybeFilters =
+    case maybeFilters of
+        Nothing ->
+            Catalog.all catalog
+
+        Just f ->
+            case ( model.listingCorpus, model.promptVector ) of
+                ( CorpusReady idx, Just vec ) ->
+                    Catalog.matchAgainstSemantic f vec idx catalog
+
+                ( CorpusReady _, Nothing ) ->
+                    Catalog.matchAgainst f catalog
+
+                ( CorpusEmpty, _ ) ->
+                    Catalog.matchAgainst f catalog
+
+                ( CorpusBuilding _, _ ) ->
+                    Catalog.matchAgainst f catalog
+
+                ( CorpusFailed _, _ ) ->
+                    Catalog.matchAgainst f catalog
 
 
 viewResultCard : Maybe ListingId -> Listing -> Html Msg

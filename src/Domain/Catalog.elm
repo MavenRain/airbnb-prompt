@@ -1,7 +1,8 @@
-module Domain.Catalog exposing (Catalog, Filters, all, decoder, findById, matchAgainst)
+module Domain.Catalog exposing (Catalog, Filters, all, decoder, findById, matchAgainst, matchAgainstSemantic)
 
 import Domain.Listing as Listing exposing (Listing, ListingId, Tag, listingDecoder)
 import Json.Decode as D exposing (Decoder)
+import Rag.Index as Rag
 
 
 type Catalog
@@ -68,3 +69,18 @@ passesHard f l =
 softScore : Filters -> Listing -> Int
 softScore f l =
     List.length (List.filter (\t -> List.member t f.tags) l.tags)
+
+
+matchAgainstSemantic : Filters -> Rag.Vector -> Rag.Index Listing -> Catalog -> List Listing
+matchAgainstSemantic filters promptVec idx (Catalog xs) =
+    let
+        hardIds =
+            xs
+                |> List.filter (passesHard filters)
+                |> List.map (.id >> Listing.idToString)
+
+        rankedAll =
+            Rag.query promptVec (List.length xs) idx
+    in
+    rankedAll
+        |> List.filter (\l -> List.member (Listing.idToString l.id) hardIds)

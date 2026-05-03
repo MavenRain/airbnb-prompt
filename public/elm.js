@@ -7671,7 +7671,7 @@ var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
 var $justinmimbs$date$Date$today = A3($elm$core$Task$map2, $justinmimbs$date$Date$fromPosix, $elm$time$Time$here, $elm$time$Time$now);
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(
-		{adults: 1, catalog: $author$project$Main$LoadingNow, checkIn: '', checkOut: '', children: 0, datesFromSlm: false, embedCounter: 0, exemplarCorpus: $author$project$Main$CorpusEmpty, exemplars: _List_Nil, heuristicPartial: $elm$core$Maybe$Nothing, infants: 0, mergedPartial: $elm$core$Maybe$Nothing, ontology: _List_Nil, ontologyCorpus: $author$project$Main$CorpusEmpty, pendingPrompt: $elm$core$Maybe$Nothing, pets: 0, prompt: '', promptEmbed: $author$project$Main$PromptEmbedIdle, selectedListing: $elm$core$Maybe$Nothing, slmCounter: 0, slmLastError: $elm$core$Maybe$Nothing, slmRequestId: $elm$core$Maybe$Nothing, slmState: $author$project$Main$SlmIdle, today: $elm$core$Maybe$Nothing},
+		{adults: 1, catalog: $author$project$Main$LoadingNow, checkIn: '', checkOut: '', children: 0, datesFromSlm: false, embedCounter: 0, exemplarCorpus: $author$project$Main$CorpusEmpty, exemplars: _List_Nil, heuristicPartial: $elm$core$Maybe$Nothing, infants: 0, listingCorpus: $author$project$Main$CorpusEmpty, mergedPartial: $elm$core$Maybe$Nothing, ontology: _List_Nil, ontologyCorpus: $author$project$Main$CorpusEmpty, pendingPrompt: $elm$core$Maybe$Nothing, pets: 0, prompt: '', promptEmbed: $author$project$Main$PromptEmbedIdle, promptVector: $elm$core$Maybe$Nothing, selectedListing: $elm$core$Maybe$Nothing, slmCounter: 0, slmLastError: $elm$core$Maybe$Nothing, slmRequestId: $elm$core$Maybe$Nothing, slmState: $author$project$Main$SlmIdle, today: $elm$core$Maybe$Nothing},
 		$elm$core$Platform$Cmd$batch(
 			_List_fromArray(
 				[
@@ -7831,6 +7831,10 @@ var $author$project$Main$LoadDone = function (a) {
 var $author$project$Main$LoadFailed = function (a) {
 	return {$: 'LoadFailed', a: a};
 };
+var $author$project$Domain$Catalog$all = function (_v0) {
+	var xs = _v0.a;
+	return xs;
+};
 var $author$project$Main$CorpusBuilding = function (a) {
 	return {$: 'CorpusBuilding', a: a};
 };
@@ -7889,6 +7893,30 @@ var $author$project$Main$advanceExemplarCorpus = F3(
 				return model;
 		}
 	});
+var $author$project$Main$setListingCorpus = F2(
+	function (c, m) {
+		return _Utils_update(
+			m,
+			{listingCorpus: c});
+	});
+var $author$project$Main$advanceListingCorpus = F3(
+	function (id, vector, model) {
+		var _v0 = model.listingCorpus;
+		switch (_v0.$) {
+			case 'CorpusBuilding':
+				var state = _v0.a;
+				return A2(
+					$author$project$Main$setListingCorpus,
+					A3($author$project$Main$advanceBuilding, id, vector, state),
+					model);
+			case 'CorpusEmpty':
+				return model;
+			case 'CorpusReady':
+				return model;
+			default:
+				return model;
+		}
+	});
 var $author$project$Main$setOntologyCorpus = F2(
 	function (c, m) {
 		return _Utils_update(
@@ -7916,15 +7944,15 @@ var $author$project$Main$advanceOntologyCorpus = F3(
 var $author$project$Main$advanceCorpora = F3(
 	function (id, vector, model) {
 		return A3(
-			$author$project$Main$advanceOntologyCorpus,
+			$author$project$Main$advanceListingCorpus,
 			id,
 			vector,
-			A3($author$project$Main$advanceExemplarCorpus, id, vector, model));
+			A3(
+				$author$project$Main$advanceOntologyCorpus,
+				id,
+				vector,
+				A3($author$project$Main$advanceExemplarCorpus, id, vector, model)));
 	});
-var $author$project$Domain$Catalog$all = function (_v0) {
-	var xs = _v0.a;
-	return xs;
-};
 var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$json$Json$Encode$list = F2(
 	function (func, entries) {
@@ -9162,7 +9190,17 @@ var $author$project$Main$firePromptWithRetrieval = F4(
 	function (vector, prompt, partial, model) {
 		var ontology = A4($author$project$Main$retrieveFromCorpus, $author$project$Main$topKOntology, vector, model.ontologyCorpus, model.ontology);
 		var exemplars = A4($author$project$Main$retrieveFromCorpus, $author$project$Main$topKExemplars, vector, model.exemplarCorpus, model.exemplars);
-		return A5($author$project$Main$fireSlmRequestWith, exemplars, ontology, prompt, partial, model);
+		return A5(
+			$author$project$Main$fireSlmRequestWith,
+			exemplars,
+			ontology,
+			prompt,
+			partial,
+			_Utils_update(
+				model,
+				{
+					promptVector: $elm$core$Maybe$Just(vector)
+				}));
 	});
 var $author$project$Main$promptEmbedMatch = F2(
 	function (id, pe) {
@@ -9235,6 +9273,24 @@ var $author$project$Main$failExemplarCorpusIfPending = F3(
 				return model;
 		}
 	});
+var $author$project$Main$failListingCorpusIfPending = F3(
+	function (id, err, model) {
+		var _v0 = model.listingCorpus;
+		switch (_v0.$) {
+			case 'CorpusBuilding':
+				var state = _v0.a;
+				return A2($elm$core$Dict$member, id, state.pending) ? A2(
+					$author$project$Main$setListingCorpus,
+					$author$project$Main$CorpusFailed(err),
+					model) : model;
+			case 'CorpusEmpty':
+				return model;
+			case 'CorpusReady':
+				return model;
+			default:
+				return model;
+		}
+	});
 var $author$project$Main$failOntologyCorpusIfPending = F3(
 	function (id, err, model) {
 		var _v0 = model.ontologyCorpus;
@@ -9256,14 +9312,18 @@ var $author$project$Main$failOntologyCorpusIfPending = F3(
 var $author$project$Main$failEmbedById = F3(
 	function (id, err, model) {
 		return A3(
-			$author$project$Main$failOntologyCorpusIfPending,
+			$author$project$Main$failListingCorpusIfPending,
 			id,
 			err,
 			A3(
-				$author$project$Main$failExemplarCorpusIfPending,
+				$author$project$Main$failOntologyCorpusIfPending,
 				id,
 				err,
-				A2($author$project$Main$clearPromptEmbedIfMatch, id, model)));
+				A3(
+					$author$project$Main$failExemplarCorpusIfPending,
+					id,
+					err,
+					A2($author$project$Main$clearPromptEmbedIfMatch, id, model))));
 	});
 var $author$project$Main$applyEmbedResult = F2(
 	function (_v0, model) {
@@ -9534,7 +9594,7 @@ var $author$project$Main$applyHeuristicAndDispatch = F3(
 			$elm$core$String$trim(raw)) ? _Utils_Tuple2(
 			_Utils_update(
 				withFlags,
-				{datesFromSlm: false, mergedPartial: $elm$core$Maybe$Nothing, pendingPrompt: $elm$core$Maybe$Nothing, slmLastError: $elm$core$Maybe$Nothing}),
+				{datesFromSlm: false, mergedPartial: $elm$core$Maybe$Nothing, pendingPrompt: $elm$core$Maybe$Nothing, promptVector: $elm$core$Maybe$Nothing, slmLastError: $elm$core$Maybe$Nothing}),
 			$elm$core$Platform$Cmd$none) : ($author$project$Parse$Pipeline$isComplete(partial) ? _Utils_Tuple2(
 			_Utils_update(
 				withFlags,
@@ -10332,6 +10392,12 @@ var $author$project$Main$httpErrorToString = function (err) {
 			return 'bad body: ' + s;
 	}
 };
+var $author$project$Main$listingToText = function (l) {
+	return l.title + (' in ' + (l.city + (', ' + (l.country + ('. Features: ' + A2(
+		$elm$core$String$join,
+		', ',
+		A2($elm$core$List$map, $author$project$Domain$Listing$tagToString, l.tags)))))));
+};
 var $author$project$Main$parseIntOr = F2(
 	function (fallback, raw) {
 		return A2(
@@ -10472,13 +10538,16 @@ var $author$project$Main$update = F2(
 			case 'GotCatalog':
 				if (msg.a.$ === 'Ok') {
 					var catalog = msg.a.a;
-					return _Utils_Tuple2(
+					return A4(
+						$author$project$Main$startCorpusBuild,
+						$author$project$Domain$Catalog$all(catalog),
+						$author$project$Main$listingToText,
+						$author$project$Main$setListingCorpus,
 						_Utils_update(
 							model,
 							{
 								catalog: $author$project$Main$LoadDone(catalog)
-							}),
-						$elm$core$Platform$Cmd$none);
+							}));
 				} else {
 					var err = msg.a.a;
 					return _Utils_Tuple2(
@@ -11135,6 +11204,63 @@ var $elm$core$List$isEmpty = function (xs) {
 	}
 };
 var $author$project$Main$maxCards = 5;
+var $author$project$Domain$Catalog$matchAgainstSemantic = F4(
+	function (filters, promptVec, idx, _v0) {
+		var xs = _v0.a;
+		var rankedAll = A3(
+			$author$project$Rag$Index$query,
+			promptVec,
+			$elm$core$List$length(xs),
+			idx);
+		var hardIds = A2(
+			$elm$core$List$map,
+			A2(
+				$elm$core$Basics$composeR,
+				function ($) {
+					return $.id;
+				},
+				$author$project$Domain$Listing$idToString),
+			A2(
+				$elm$core$List$filter,
+				$author$project$Domain$Catalog$passesHard(filters),
+				xs));
+		return A2(
+			$elm$core$List$filter,
+			function (l) {
+				return A2(
+					$elm$core$List$member,
+					$author$project$Domain$Listing$idToString(l.id),
+					hardIds);
+			},
+			rankedAll);
+	});
+var $author$project$Main$rankListings = F3(
+	function (catalog, model, maybeFilters) {
+		if (maybeFilters.$ === 'Nothing') {
+			return $author$project$Domain$Catalog$all(catalog);
+		} else {
+			var f = maybeFilters.a;
+			var _v1 = _Utils_Tuple2(model.listingCorpus, model.promptVector);
+			switch (_v1.a.$) {
+				case 'CorpusReady':
+					if (_v1.b.$ === 'Just') {
+						var idx = _v1.a.a;
+						var vec = _v1.b.a;
+						return A4($author$project$Domain$Catalog$matchAgainstSemantic, f, vec, idx, catalog);
+					} else {
+						var _v2 = _v1.b;
+						return A2($author$project$Domain$Catalog$matchAgainst, f, catalog);
+					}
+				case 'CorpusEmpty':
+					var _v3 = _v1.a;
+					return A2($author$project$Domain$Catalog$matchAgainst, f, catalog);
+				case 'CorpusBuilding':
+					return A2($author$project$Domain$Catalog$matchAgainst, f, catalog);
+				default:
+					return A2($author$project$Domain$Catalog$matchAgainst, f, catalog);
+			}
+		}
+	});
 var $author$project$Main$SelectedListing = function (a) {
 	return {$: 'SelectedListing', a: a};
 };
@@ -11237,15 +11363,7 @@ var $author$project$Main$viewResultCard = F2(
 var $author$project$Main$viewListingCards = F2(
 	function (catalog, model) {
 		var filters = A2($elm$core$Maybe$map, $author$project$Main$filtersFromPartial, model.mergedPartial);
-		var ranked = A2(
-			$elm$core$Maybe$withDefault,
-			$author$project$Domain$Catalog$all(catalog),
-			A2(
-				$elm$core$Maybe$map,
-				function (f) {
-					return A2($author$project$Domain$Catalog$matchAgainst, f, catalog);
-				},
-				filters));
+		var ranked = A3($author$project$Main$rankListings, catalog, model, filters);
 		var toShow = $elm$core$List$isEmpty(ranked) ? $author$project$Domain$Catalog$all(catalog) : ranked;
 		var showingFallback = $author$project$Main$isJust(filters) && $elm$core$List$isEmpty(ranked);
 		var notice = showingFallback ? A2(
