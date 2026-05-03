@@ -1,0 +1,24 @@
+{
+    "entries": [
+        {"text": "BCN means Barcelona", "hint": "city alias"},
+        {"text": "barca means Barcelona", "hint": "city alias"},
+        {"text": "lisboa means Lisbon", "hint": "city alias"},
+        {"text": "long weekend means a 3-night stay starting Friday", "hint": "duration phrase"},
+        {"text": "weekend means a 2-night stay starting Saturday", "hint": "duration phrase"},
+        {"text": "a week means a 7-night stay", "hint": "duration phrase"},
+        {"text": "family of N means 2 adults plus N-2 children", "hint": "group phrase"},
+        {"text": "couple means 2 adults", "hint": "group phrase"},
+        {"text": "solo means 1 adult", "hint": "group phrase"},
+        {"text": "early <month> means the first week of that month", "hint": "date phrase"},
+        {"text": "mid <month> means the second or third week of that month", "hint": "date phrase"},
+        {"text": "late <month> means the last week of that month", "hint": "date phrase"},
+        {"text": "Easter weekend in 2027 falls on April 16-19", "hint": "holiday date"},
+        {"text": "Memorial Day weekend in 2026 is May 22-25", "hint": "holiday date"},
+        {"text": "Christmas week is December 21-28", "hint": "holiday date"},
+        {"text": "Thanksgiving week 2026 is November 23-29", "hint": "holiday date"},
+        {"text": "with my dog or with our dog implies pets=1 and the pet-friendly tag", "hint": "pet inference"},
+        {"text": "beachfront, oceanfront, seaside imply the beachfront tag", "hint": "tag synonyms"},
+        {"text": "downtown, city center, central imply the city-center tag", "hint": "tag synonyms"},
+        {"text": "quiet, peaceful, secluded, off-grid imply the quiet tag", "hint": "tag synonyms"}
+    ]
+}

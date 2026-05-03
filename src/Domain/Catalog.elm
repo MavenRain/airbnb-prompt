@@ -1,11 +1,19 @@
-module Domain.Catalog exposing (Catalog, all, decoder, findById)
+module Domain.Catalog exposing (Catalog, Filters, all, decoder, findById, matchAgainst)
 
-import Domain.Listing as Listing exposing (Listing, ListingId, listingDecoder)
+import Domain.Listing as Listing exposing (Listing, ListingId, Tag, listingDecoder)
 import Json.Decode as D exposing (Decoder)
 
 
 type Catalog
     = Catalog (List Listing)
+
+
+type alias Filters =
+    { destination : Maybe String
+    , totalGuests : Int
+    , petsRequested : Bool
+    , tags : List Tag
+    }
 
 
 decoder : Decoder Catalog
@@ -28,3 +36,35 @@ findById target (Catalog xs) =
     xs
         |> List.filter (\l -> Listing.idToString l.id == targetStr)
         |> List.head
+
+
+matchAgainst : Filters -> Catalog -> List Listing
+matchAgainst filters (Catalog xs) =
+    xs
+        |> List.filter (passesHard filters)
+        |> List.sortBy (\l -> -(softScore filters l))
+
+
+passesHard : Filters -> Listing -> Bool
+passesHard f l =
+    let
+        cityOk =
+            case f.destination of
+                Just c ->
+                    String.toLower l.city == String.toLower c
+
+                Nothing ->
+                    True
+
+        capacityOk =
+            f.totalGuests <= l.maxGuests
+
+        petsOk =
+            not f.petsRequested || l.petsAllowed
+    in
+    cityOk && capacityOk && petsOk
+
+
+softScore : Filters -> Listing -> Int
+softScore f l =
+    List.length (List.filter (\t -> List.member t f.tags) l.tags)

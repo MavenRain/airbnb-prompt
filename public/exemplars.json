@@ -1,0 +1,52 @@
+{
+    "exemplars": [
+        {
+            "prompt": "long weekend in Lisbon for two in October",
+            "result": {"destination":"Lisbon","checkIn":"2026-10-09","checkOut":"2026-10-12","adults":2,"children":0,"infants":0,"pets":0,"tags":[]}
+        },
+        {
+            "prompt": "BCN early June, family of 4",
+            "result": {"destination":"Barcelona","checkIn":"2026-06-03","checkOut":"2026-06-10","adults":2,"children":2,"infants":0,"pets":0,"tags":[]}
+        },
+        {
+            "prompt": "weekend trip Kyoto, just me, workspace needed",
+            "result": {"destination":"Kyoto","checkIn":"2026-05-09","checkOut":"2026-05-11","adults":1,"children":0,"infants":0,"pets":0,"tags":["workspace"]}
+        },
+        {
+            "prompt": "Christmas week in Chamonix with my dog",
+            "result": {"destination":"Chamonix","checkIn":"2026-12-21","checkOut":"2026-12-28","adults":1,"children":0,"infants":0,"pets":1,"tags":["pet-friendly","mountain"]}
+        },
+        {
+            "prompt": "memorial day weekend Barcelona, pool",
+            "result": {"destination":"Barcelona","checkIn":"2026-05-22","checkOut":"2026-05-25","adults":1,"children":0,"infants":0,"pets":0,"tags":["pool"]}
+        },
+        {
+            "prompt": "couple Easter Tulum",
+            "result": {"destination":"Tulum","checkIn":"2027-04-23","checkOut":"2027-04-26","adults":2,"children":0,"infants":0,"pets":0,"tags":[]}
+        },
+        {
+            "prompt": "a week in Lisbon for two starting June 1",
+            "result": {"destination":"Lisbon","checkIn":"2026-06-01","checkOut":"2026-06-08","adults":2,"children":0,"infants":0,"pets":0,"tags":[]}
+        },
+        {
+            "prompt": "beach trip late August Tulum, dog OK",
+            "result": {"destination":"Tulum","checkIn":"2026-08-24","checkOut":"2026-08-30","adults":1,"children":0,"infants":0,"pets":1,"tags":["beachfront","pet-friendly"]}
+        },
+        {
+            "prompt": "barca for two, mid-September, 5 nights",
+            "result": {"destination":"Barcelona","checkIn":"2026-09-14","checkOut":"2026-09-19","adults":2,"children":0,"infants":0,"pets":0,"tags":[]}
+        },
+        {
+            "prompt": "lisboa for me and my partner, June 1-7",
+            "result": {"destination":"Lisbon","checkIn":"2026-06-01","checkOut":"2026-06-07","adults":2,"children":0,"infants":0,"pets":0,"tags":[]}
+        },
+        {
+            "prompt": "Kyoto October solo trip 4 nights from the 15th",
+            "result": {"destination":"Kyoto","checkIn":"2026-10-15","checkOut":"2026-10-19","adults":1,"children":0,"infants":0,"pets":0,"tags":[]}
+        },
+        {
+            "prompt": "Tulum first weekend of December, just me and the dog",
+            "result": {"destination":"Tulum","checkIn":"2026-12-04","checkOut":"2026-12-06","adults":1,"children":0,"infants":0,"pets":1,"tags":["pet-friendly"]}
+        }
+    ]
+}

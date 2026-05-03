@@ -4373,6 +4373,136 @@ function _Browser_load(url)
 
 
 
+
+// STRINGS
+
+
+var _Parser_isSubString = F5(function(smallString, offset, row, col, bigString)
+{
+	var smallLength = smallString.length;
+	var isGood = offset + smallLength <= bigString.length;
+
+	for (var i = 0; isGood && i < smallLength; )
+	{
+		var code = bigString.charCodeAt(offset);
+		isGood =
+			smallString[i++] === bigString[offset++]
+			&& (
+				code === 0x000A /* \n */
+					? ( row++, col=1 )
+					: ( col++, (code & 0xF800) === 0xD800 ? smallString[i++] === bigString[offset++] : 1 )
+			)
+	}
+
+	return _Utils_Tuple3(isGood ? offset : -1, row, col);
+});
+
+
+
+// CHARS
+
+
+var _Parser_isSubChar = F3(function(predicate, offset, string)
+{
+	return (
+		string.length <= offset
+			? -1
+			:
+		(string.charCodeAt(offset) & 0xF800) === 0xD800
+			? (predicate(_Utils_chr(string.substr(offset, 2))) ? offset + 2 : -1)
+			:
+		(predicate(_Utils_chr(string[offset]))
+			? ((string[offset] === '\n') ? -2 : (offset + 1))
+			: -1
+		)
+	);
+});
+
+
+var _Parser_isAsciiCode = F3(function(code, offset, string)
+{
+	return string.charCodeAt(offset) === code;
+});
+
+
+
+// NUMBERS
+
+
+var _Parser_chompBase10 = F2(function(offset, string)
+{
+	for (; offset < string.length; offset++)
+	{
+		var code = string.charCodeAt(offset);
+		if (code < 0x30 || 0x39 < code)
+		{
+			return offset;
+		}
+	}
+	return offset;
+});
+
+
+var _Parser_consumeBase = F3(function(base, offset, string)
+{
+	for (var total = 0; offset < string.length; offset++)
+	{
+		var digit = string.charCodeAt(offset) - 0x30;
+		if (digit < 0 || base <= digit) break;
+		total = base * total + digit;
+	}
+	return _Utils_Tuple2(offset, total);
+});
+
+
+var _Parser_consumeBase16 = F2(function(offset, string)
+{
+	for (var total = 0; offset < string.length; offset++)
+	{
+		var code = string.charCodeAt(offset);
+		if (0x30 <= code && code <= 0x39)
+		{
+			total = 16 * total + code - 0x30;
+		}
+		else if (0x41 <= code && code <= 0x46)
+		{
+			total = 16 * total + code - 55;
+		}
+		else if (0x61 <= code && code <= 0x66)
+		{
+			total = 16 * total + code - 87;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return _Utils_Tuple2(offset, total);
+});
+
+
+
+// FIND STRING
+
+
+var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString)
+{
+	var newOffset = bigString.indexOf(smallString, offset);
+	var target = newOffset < 0 ? bigString.length : newOffset + smallString.length;
+
+	while (offset < target)
+	{
+		var code = bigString.charCodeAt(offset++);
+		code === 0x000A /* \n */
+			? ( col=1, row++ )
+			: ( col++, (code & 0xF800) === 0xD800 && offset++ )
+	}
+
+	return _Utils_Tuple3(newOffset, row, col);
+});
+
+
+
 // SEND REQUEST
 
 var _Http_toTask = F3(function(router, toTask, request)
@@ -4627,136 +4757,6 @@ var _Bitwise_shiftRightBy = F2(function(offset, a)
 var _Bitwise_shiftRightZfBy = F2(function(offset, a)
 {
 	return a >>> offset;
-});
-
-
-
-
-// STRINGS
-
-
-var _Parser_isSubString = F5(function(smallString, offset, row, col, bigString)
-{
-	var smallLength = smallString.length;
-	var isGood = offset + smallLength <= bigString.length;
-
-	for (var i = 0; isGood && i < smallLength; )
-	{
-		var code = bigString.charCodeAt(offset);
-		isGood =
-			smallString[i++] === bigString[offset++]
-			&& (
-				code === 0x000A /* \n */
-					? ( row++, col=1 )
-					: ( col++, (code & 0xF800) === 0xD800 ? smallString[i++] === bigString[offset++] : 1 )
-			)
-	}
-
-	return _Utils_Tuple3(isGood ? offset : -1, row, col);
-});
-
-
-
-// CHARS
-
-
-var _Parser_isSubChar = F3(function(predicate, offset, string)
-{
-	return (
-		string.length <= offset
-			? -1
-			:
-		(string.charCodeAt(offset) & 0xF800) === 0xD800
-			? (predicate(_Utils_chr(string.substr(offset, 2))) ? offset + 2 : -1)
-			:
-		(predicate(_Utils_chr(string[offset]))
-			? ((string[offset] === '\n') ? -2 : (offset + 1))
-			: -1
-		)
-	);
-});
-
-
-var _Parser_isAsciiCode = F3(function(code, offset, string)
-{
-	return string.charCodeAt(offset) === code;
-});
-
-
-
-// NUMBERS
-
-
-var _Parser_chompBase10 = F2(function(offset, string)
-{
-	for (; offset < string.length; offset++)
-	{
-		var code = string.charCodeAt(offset);
-		if (code < 0x30 || 0x39 < code)
-		{
-			return offset;
-		}
-	}
-	return offset;
-});
-
-
-var _Parser_consumeBase = F3(function(base, offset, string)
-{
-	for (var total = 0; offset < string.length; offset++)
-	{
-		var digit = string.charCodeAt(offset) - 0x30;
-		if (digit < 0 || base <= digit) break;
-		total = base * total + digit;
-	}
-	return _Utils_Tuple2(offset, total);
-});
-
-
-var _Parser_consumeBase16 = F2(function(offset, string)
-{
-	for (var total = 0; offset < string.length; offset++)
-	{
-		var code = string.charCodeAt(offset);
-		if (0x30 <= code && code <= 0x39)
-		{
-			total = 16 * total + code - 0x30;
-		}
-		else if (0x41 <= code && code <= 0x46)
-		{
-			total = 16 * total + code - 55;
-		}
-		else if (0x61 <= code && code <= 0x66)
-		{
-			total = 16 * total + code - 87;
-		}
-		else
-		{
-			break;
-		}
-	}
-	return _Utils_Tuple2(offset, total);
-});
-
-
-
-// FIND STRING
-
-
-var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString)
-{
-	var newOffset = bigString.indexOf(smallString, offset);
-	var target = newOffset < 0 ? bigString.length : newOffset + smallString.length;
-
-	while (offset < target)
-	{
-		var code = bigString.charCodeAt(offset++);
-		code === 0x000A /* \n */
-			? ( col=1, row++ )
-			: ( col++, (code & 0xF800) === 0xD800 && offset++ )
-	}
-
-	return _Utils_Tuple3(newOffset, row, col);
 });
 
 
@@ -5665,32 +5665,202 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
+var $author$project$Main$CorpusEmpty = {$: 'CorpusEmpty'};
 var $author$project$Main$GotCatalog = function (a) {
 	return {$: 'GotCatalog', a: a};
+};
+var $author$project$Main$GotExemplars = function (a) {
+	return {$: 'GotExemplars', a: a};
+};
+var $author$project$Main$GotOntology = function (a) {
+	return {$: 'GotOntology', a: a};
 };
 var $author$project$Main$GotToday = function (a) {
 	return {$: 'GotToday', a: a};
 };
 var $author$project$Main$LoadingNow = {$: 'LoadingNow'};
+var $author$project$Main$PromptEmbedIdle = {$: 'PromptEmbedIdle'};
+var $author$project$Main$SlmIdle = {$: 'SlmIdle'};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $author$project$Domain$Catalog$Catalog = function (a) {
-	return {$: 'Catalog', a: a};
-};
-var $elm$json$Json$Decode$field = _Json_decodeField;
-var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$Domain$Listing$Listing = F8(
-	function (id, title, city, country, maxGuests, petsAllowed, tags, thumbnailUrl) {
-		return {city: city, country: country, id: id, maxGuests: maxGuests, petsAllowed: petsAllowed, tags: tags, thumbnailUrl: thumbnailUrl, title: title};
+var $author$project$Parse$Pipeline$Exemplar = F2(
+	function (prompt, result) {
+		return {prompt: prompt, result: result};
 	});
-var $author$project$Domain$Listing$ListingId = function (a) {
-	return {$: 'ListingId', a: a};
-};
-var $elm$json$Json$Decode$bool = _Json_decodeBool;
-var $elm$json$Json$Decode$int = _Json_decodeInt;
-var $elm$json$Json$Decode$map8 = _Json_map8;
-var $elm$json$Json$Decode$string = _Json_decodeString;
+var $elm$json$Json$Decode$field = _Json_decodeField;
+var $author$project$Parse$Heuristic$PartialQuery = F8(
+	function (destination, checkIn, checkOut, adults, children, infants, pets, tags) {
+		return {adults: adults, checkIn: checkIn, checkOut: checkOut, children: children, destination: destination, infants: infants, pets: pets, tags: tags};
+	});
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $elm$json$Json$Decode$fail = _Json_fail;
+var $elm$core$Basics$always = F2(
+	function (a, _v0) {
+		return a;
+	});
+var $elm$parser$Parser$Advanced$Bad = F2(
+	function (a, b) {
+		return {$: 'Bad', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$Good = F3(
+	function (a, b, c) {
+		return {$: 'Good', a: a, b: b, c: c};
+	});
+var $elm$parser$Parser$Advanced$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$parser$Parser$Advanced$andThen = F2(
+	function (callback, _v0) {
+		var parseA = _v0.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v1 = parseA(s0);
+				if (_v1.$ === 'Bad') {
+					var p = _v1.a;
+					var x = _v1.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				} else {
+					var p1 = _v1.a;
+					var a = _v1.b;
+					var s1 = _v1.c;
+					var _v2 = callback(a);
+					var parseB = _v2.a;
+					var _v3 = parseB(s1);
+					if (_v3.$ === 'Bad') {
+						var p2 = _v3.a;
+						var x = _v3.b;
+						return A2($elm$parser$Parser$Advanced$Bad, p1 || p2, x);
+					} else {
+						var p2 = _v3.a;
+						var b = _v3.b;
+						var s2 = _v3.c;
+						return A3($elm$parser$Parser$Advanced$Good, p1 || p2, b, s2);
+					}
+				}
+			});
+	});
+var $elm$parser$Parser$andThen = $elm$parser$Parser$Advanced$andThen;
+var $elm$parser$Parser$UnexpectedChar = {$: 'UnexpectedChar'};
+var $elm$parser$Parser$Advanced$AddRight = F2(
+	function (a, b) {
+		return {$: 'AddRight', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$DeadEnd = F4(
+	function (row, col, problem, contextStack) {
+		return {col: col, contextStack: contextStack, problem: problem, row: row};
+	});
+var $elm$parser$Parser$Advanced$Empty = {$: 'Empty'};
+var $elm$parser$Parser$Advanced$fromState = F2(
+	function (s, x) {
+		return A2(
+			$elm$parser$Parser$Advanced$AddRight,
+			$elm$parser$Parser$Advanced$Empty,
+			A4($elm$parser$Parser$Advanced$DeadEnd, s.row, s.col, x, s.context));
+	});
+var $elm$parser$Parser$Advanced$isSubChar = _Parser_isSubChar;
+var $elm$core$Basics$negate = function (n) {
+	return -n;
+};
+var $elm$parser$Parser$Advanced$chompIf = F2(
+	function (isGood, expecting) {
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s) {
+				var newOffset = A3($elm$parser$Parser$Advanced$isSubChar, isGood, s.offset, s.src);
+				return _Utils_eq(newOffset, -1) ? A2(
+					$elm$parser$Parser$Advanced$Bad,
+					false,
+					A2($elm$parser$Parser$Advanced$fromState, s, expecting)) : (_Utils_eq(newOffset, -2) ? A3(
+					$elm$parser$Parser$Advanced$Good,
+					true,
+					_Utils_Tuple0,
+					{col: 1, context: s.context, indent: s.indent, offset: s.offset + 1, row: s.row + 1, src: s.src}) : A3(
+					$elm$parser$Parser$Advanced$Good,
+					true,
+					_Utils_Tuple0,
+					{col: s.col + 1, context: s.context, indent: s.indent, offset: newOffset, row: s.row, src: s.src}));
+			});
+	});
+var $elm$parser$Parser$chompIf = function (isGood) {
+	return A2($elm$parser$Parser$Advanced$chompIf, isGood, $elm$parser$Parser$UnexpectedChar);
+};
+var $elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var $justinmimbs$date$Date$deadEndToString = function (_v0) {
+	var problem = _v0.problem;
+	if (problem.$ === 'Problem') {
+		var message = problem.a;
+		return message;
+	} else {
+		return 'Expected a date in ISO 8601 format';
+	}
+};
+var $elm$parser$Parser$ExpectingEnd = {$: 'ExpectingEnd'};
+var $elm$parser$Parser$Advanced$end = function (x) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return _Utils_eq(
+				$elm$core$String$length(s.src),
+				s.offset) ? A3($elm$parser$Parser$Advanced$Good, false, _Utils_Tuple0, s) : A2(
+				$elm$parser$Parser$Advanced$Bad,
+				false,
+				A2($elm$parser$Parser$Advanced$fromState, s, x));
+		});
+};
+var $elm$parser$Parser$end = $elm$parser$Parser$Advanced$end($elm$parser$Parser$ExpectingEnd);
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm$parser$Parser$Advanced$map2 = F3(
+	function (func, _v0, _v1) {
+		var parseA = _v0.a;
+		var parseB = _v1.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v2 = parseA(s0);
+				if (_v2.$ === 'Bad') {
+					var p = _v2.a;
+					var x = _v2.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				} else {
+					var p1 = _v2.a;
+					var a = _v2.b;
+					var s1 = _v2.c;
+					var _v3 = parseB(s1);
+					if (_v3.$ === 'Bad') {
+						var p2 = _v3.a;
+						var x = _v3.b;
+						return A2($elm$parser$Parser$Advanced$Bad, p1 || p2, x);
+					} else {
+						var p2 = _v3.a;
+						var b = _v3.b;
+						var s2 = _v3.c;
+						return A3(
+							$elm$parser$Parser$Advanced$Good,
+							p1 || p2,
+							A2(func, a, b),
+							s2);
+					}
+				}
+			});
+	});
+var $elm$parser$Parser$Advanced$ignorer = F2(
+	function (keepParser, ignoreParser) {
+		return A3($elm$parser$Parser$Advanced$map2, $elm$core$Basics$always, keepParser, ignoreParser);
+	});
+var $elm$parser$Parser$ignorer = $elm$parser$Parser$Advanced$ignorer;
+var $elm$parser$Parser$Advanced$keeper = F2(
+	function (parseFunc, parseArg) {
+		return A3($elm$parser$Parser$Advanced$map2, $elm$core$Basics$apL, parseFunc, parseArg);
+	});
+var $elm$parser$Parser$keeper = $elm$parser$Parser$Advanced$keeper;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
 		if (maybe.$ === 'Just') {
@@ -5701,6 +5871,789 @@ var $elm$core$Maybe$map = F2(
 			return $elm$core$Maybe$Nothing;
 		}
 	});
+var $elm$parser$Parser$Advanced$map = F2(
+	function (func, _v0) {
+		var parse = _v0.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var p = _v1.a;
+					var a = _v1.b;
+					var s1 = _v1.c;
+					return A3(
+						$elm$parser$Parser$Advanced$Good,
+						p,
+						func(a),
+						s1);
+				} else {
+					var p = _v1.a;
+					var x = _v1.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				}
+			});
+	});
+var $elm$parser$Parser$map = $elm$parser$Parser$Advanced$map;
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $elm$parser$Parser$Advanced$Append = F2(
+	function (a, b) {
+		return {$: 'Append', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$oneOfHelp = F3(
+	function (s0, bag, parsers) {
+		oneOfHelp:
+		while (true) {
+			if (!parsers.b) {
+				return A2($elm$parser$Parser$Advanced$Bad, false, bag);
+			} else {
+				var parse = parsers.a.a;
+				var remainingParsers = parsers.b;
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var step = _v1;
+					return step;
+				} else {
+					var step = _v1;
+					var p = step.a;
+					var x = step.b;
+					if (p) {
+						return step;
+					} else {
+						var $temp$s0 = s0,
+							$temp$bag = A2($elm$parser$Parser$Advanced$Append, bag, x),
+							$temp$parsers = remainingParsers;
+						s0 = $temp$s0;
+						bag = $temp$bag;
+						parsers = $temp$parsers;
+						continue oneOfHelp;
+					}
+				}
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$oneOf = function (parsers) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A3($elm$parser$Parser$Advanced$oneOfHelp, s, $elm$parser$Parser$Advanced$Empty, parsers);
+		});
+};
+var $elm$parser$Parser$oneOf = $elm$parser$Parser$Advanced$oneOf;
+var $justinmimbs$date$Date$MonthAndDay = F2(
+	function (a, b) {
+		return {$: 'MonthAndDay', a: a, b: b};
+	});
+var $justinmimbs$date$Date$OrdinalDay = function (a) {
+	return {$: 'OrdinalDay', a: a};
+};
+var $justinmimbs$date$Date$WeekAndWeekday = F2(
+	function (a, b) {
+		return {$: 'WeekAndWeekday', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$backtrackable = function (_v0) {
+	var parse = _v0.a;
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s0) {
+			var _v1 = parse(s0);
+			if (_v1.$ === 'Bad') {
+				var x = _v1.b;
+				return A2($elm$parser$Parser$Advanced$Bad, false, x);
+			} else {
+				var a = _v1.b;
+				var s1 = _v1.c;
+				return A3($elm$parser$Parser$Advanced$Good, false, a, s1);
+			}
+		});
+};
+var $elm$parser$Parser$backtrackable = $elm$parser$Parser$Advanced$backtrackable;
+var $elm$parser$Parser$Advanced$commit = function (a) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A3($elm$parser$Parser$Advanced$Good, true, a, s);
+		});
+};
+var $elm$parser$Parser$commit = $elm$parser$Parser$Advanced$commit;
+var $elm$parser$Parser$Advanced$mapChompedString = F2(
+	function (func, _v0) {
+		var parse = _v0.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Bad') {
+					var p = _v1.a;
+					var x = _v1.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				} else {
+					var p = _v1.a;
+					var a = _v1.b;
+					var s1 = _v1.c;
+					return A3(
+						$elm$parser$Parser$Advanced$Good,
+						p,
+						A2(
+							func,
+							A3($elm$core$String$slice, s0.offset, s1.offset, s0.src),
+							a),
+						s1);
+				}
+			});
+	});
+var $elm$parser$Parser$mapChompedString = $elm$parser$Parser$Advanced$mapChompedString;
+var $elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var $justinmimbs$date$Date$int1 = A2(
+	$elm$parser$Parser$mapChompedString,
+	F2(
+		function (str, _v0) {
+			return A2(
+				$elm$core$Maybe$withDefault,
+				0,
+				$elm$core$String$toInt(str));
+		}),
+	$elm$parser$Parser$chompIf($elm$core$Char$isDigit));
+var $elm$parser$Parser$Advanced$succeed = function (a) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A3($elm$parser$Parser$Advanced$Good, false, a, s);
+		});
+};
+var $elm$parser$Parser$succeed = $elm$parser$Parser$Advanced$succeed;
+var $justinmimbs$date$Date$int2 = A2(
+	$elm$parser$Parser$mapChompedString,
+	F2(
+		function (str, _v0) {
+			return A2(
+				$elm$core$Maybe$withDefault,
+				0,
+				$elm$core$String$toInt(str));
+		}),
+	A2(
+		$elm$parser$Parser$ignorer,
+		A2(
+			$elm$parser$Parser$ignorer,
+			$elm$parser$Parser$succeed(_Utils_Tuple0),
+			$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
+		$elm$parser$Parser$chompIf($elm$core$Char$isDigit)));
+var $justinmimbs$date$Date$int3 = A2(
+	$elm$parser$Parser$mapChompedString,
+	F2(
+		function (str, _v0) {
+			return A2(
+				$elm$core$Maybe$withDefault,
+				0,
+				$elm$core$String$toInt(str));
+		}),
+	A2(
+		$elm$parser$Parser$ignorer,
+		A2(
+			$elm$parser$Parser$ignorer,
+			A2(
+				$elm$parser$Parser$ignorer,
+				$elm$parser$Parser$succeed(_Utils_Tuple0),
+				$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
+			$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
+		$elm$parser$Parser$chompIf($elm$core$Char$isDigit)));
+var $elm$parser$Parser$Expecting = function (a) {
+	return {$: 'Expecting', a: a};
+};
+var $elm$parser$Parser$Advanced$Token = F2(
+	function (a, b) {
+		return {$: 'Token', a: a, b: b};
+	});
+var $elm$parser$Parser$toToken = function (str) {
+	return A2(
+		$elm$parser$Parser$Advanced$Token,
+		str,
+		$elm$parser$Parser$Expecting(str));
+};
+var $elm$parser$Parser$Advanced$isSubString = _Parser_isSubString;
+var $elm$core$Basics$not = _Basics_not;
+var $elm$parser$Parser$Advanced$token = function (_v0) {
+	var str = _v0.a;
+	var expecting = _v0.b;
+	var progress = !$elm$core$String$isEmpty(str);
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			var _v1 = A5($elm$parser$Parser$Advanced$isSubString, str, s.offset, s.row, s.col, s.src);
+			var newOffset = _v1.a;
+			var newRow = _v1.b;
+			var newCol = _v1.c;
+			return _Utils_eq(newOffset, -1) ? A2(
+				$elm$parser$Parser$Advanced$Bad,
+				false,
+				A2($elm$parser$Parser$Advanced$fromState, s, expecting)) : A3(
+				$elm$parser$Parser$Advanced$Good,
+				progress,
+				_Utils_Tuple0,
+				{col: newCol, context: s.context, indent: s.indent, offset: newOffset, row: newRow, src: s.src});
+		});
+};
+var $elm$parser$Parser$token = function (str) {
+	return $elm$parser$Parser$Advanced$token(
+		$elm$parser$Parser$toToken(str));
+};
+var $justinmimbs$date$Date$dayOfYear = $elm$parser$Parser$oneOf(
+	_List_fromArray(
+		[
+			A2(
+			$elm$parser$Parser$keeper,
+			A2(
+				$elm$parser$Parser$ignorer,
+				$elm$parser$Parser$succeed($elm$core$Basics$identity),
+				$elm$parser$Parser$token('-')),
+			$elm$parser$Parser$oneOf(
+				_List_fromArray(
+					[
+						$elm$parser$Parser$backtrackable(
+						A2(
+							$elm$parser$Parser$andThen,
+							$elm$parser$Parser$commit,
+							A2($elm$parser$Parser$map, $justinmimbs$date$Date$OrdinalDay, $justinmimbs$date$Date$int3))),
+						A2(
+						$elm$parser$Parser$keeper,
+						A2(
+							$elm$parser$Parser$keeper,
+							$elm$parser$Parser$succeed($justinmimbs$date$Date$MonthAndDay),
+							$justinmimbs$date$Date$int2),
+						$elm$parser$Parser$oneOf(
+							_List_fromArray(
+								[
+									A2(
+									$elm$parser$Parser$keeper,
+									A2(
+										$elm$parser$Parser$ignorer,
+										$elm$parser$Parser$succeed($elm$core$Basics$identity),
+										$elm$parser$Parser$token('-')),
+									$justinmimbs$date$Date$int2),
+									$elm$parser$Parser$succeed(1)
+								]))),
+						A2(
+						$elm$parser$Parser$keeper,
+						A2(
+							$elm$parser$Parser$keeper,
+							A2(
+								$elm$parser$Parser$ignorer,
+								$elm$parser$Parser$succeed($justinmimbs$date$Date$WeekAndWeekday),
+								$elm$parser$Parser$token('W')),
+							$justinmimbs$date$Date$int2),
+						$elm$parser$Parser$oneOf(
+							_List_fromArray(
+								[
+									A2(
+									$elm$parser$Parser$keeper,
+									A2(
+										$elm$parser$Parser$ignorer,
+										$elm$parser$Parser$succeed($elm$core$Basics$identity),
+										$elm$parser$Parser$token('-')),
+									$justinmimbs$date$Date$int1),
+									$elm$parser$Parser$succeed(1)
+								])))
+					]))),
+			$elm$parser$Parser$backtrackable(
+			A2(
+				$elm$parser$Parser$andThen,
+				$elm$parser$Parser$commit,
+				A2(
+					$elm$parser$Parser$keeper,
+					A2(
+						$elm$parser$Parser$keeper,
+						$elm$parser$Parser$succeed($justinmimbs$date$Date$MonthAndDay),
+						$justinmimbs$date$Date$int2),
+					$elm$parser$Parser$oneOf(
+						_List_fromArray(
+							[
+								$justinmimbs$date$Date$int2,
+								$elm$parser$Parser$succeed(1)
+							]))))),
+			A2($elm$parser$Parser$map, $justinmimbs$date$Date$OrdinalDay, $justinmimbs$date$Date$int3),
+			A2(
+			$elm$parser$Parser$keeper,
+			A2(
+				$elm$parser$Parser$keeper,
+				A2(
+					$elm$parser$Parser$ignorer,
+					$elm$parser$Parser$succeed($justinmimbs$date$Date$WeekAndWeekday),
+					$elm$parser$Parser$token('W')),
+				$justinmimbs$date$Date$int2),
+			$elm$parser$Parser$oneOf(
+				_List_fromArray(
+					[
+						$justinmimbs$date$Date$int1,
+						$elm$parser$Parser$succeed(1)
+					]))),
+			$elm$parser$Parser$succeed(
+			$justinmimbs$date$Date$OrdinalDay(1))
+		]));
+var $justinmimbs$date$Date$RD = function (a) {
+	return {$: 'RD', a: a};
+};
+var $elm$core$Basics$modBy = _Basics_modBy;
+var $elm$core$Basics$neq = _Utils_notEqual;
+var $justinmimbs$date$Date$isLeapYear = function (y) {
+	return ((!A2($elm$core$Basics$modBy, 4, y)) && (!(!A2($elm$core$Basics$modBy, 100, y)))) || (!A2($elm$core$Basics$modBy, 400, y));
+};
+var $justinmimbs$date$Date$daysBeforeMonth = F2(
+	function (y, m) {
+		var leapDays = $justinmimbs$date$Date$isLeapYear(y) ? 1 : 0;
+		switch (m.$) {
+			case 'Jan':
+				return 0;
+			case 'Feb':
+				return 31;
+			case 'Mar':
+				return 59 + leapDays;
+			case 'Apr':
+				return 90 + leapDays;
+			case 'May':
+				return 120 + leapDays;
+			case 'Jun':
+				return 151 + leapDays;
+			case 'Jul':
+				return 181 + leapDays;
+			case 'Aug':
+				return 212 + leapDays;
+			case 'Sep':
+				return 243 + leapDays;
+			case 'Oct':
+				return 273 + leapDays;
+			case 'Nov':
+				return 304 + leapDays;
+			default:
+				return 334 + leapDays;
+		}
+	});
+var $justinmimbs$date$Date$floorDiv = F2(
+	function (a, b) {
+		return $elm$core$Basics$floor(a / b);
+	});
+var $justinmimbs$date$Date$daysBeforeYear = function (y1) {
+	var y = y1 - 1;
+	var leapYears = (A2($justinmimbs$date$Date$floorDiv, y, 4) - A2($justinmimbs$date$Date$floorDiv, y, 100)) + A2($justinmimbs$date$Date$floorDiv, y, 400);
+	return (365 * y) + leapYears;
+};
+var $justinmimbs$date$Date$daysInMonth = F2(
+	function (y, m) {
+		switch (m.$) {
+			case 'Jan':
+				return 31;
+			case 'Feb':
+				return $justinmimbs$date$Date$isLeapYear(y) ? 29 : 28;
+			case 'Mar':
+				return 31;
+			case 'Apr':
+				return 30;
+			case 'May':
+				return 31;
+			case 'Jun':
+				return 30;
+			case 'Jul':
+				return 31;
+			case 'Aug':
+				return 31;
+			case 'Sep':
+				return 30;
+			case 'Oct':
+				return 31;
+			case 'Nov':
+				return 30;
+			default:
+				return 31;
+		}
+	});
+var $justinmimbs$date$Date$isBetweenInt = F3(
+	function (a, b, x) {
+		return (_Utils_cmp(a, x) < 1) && (_Utils_cmp(x, b) < 1);
+	});
+var $justinmimbs$date$Date$monthToName = function (m) {
+	switch (m.$) {
+		case 'Jan':
+			return 'January';
+		case 'Feb':
+			return 'February';
+		case 'Mar':
+			return 'March';
+		case 'Apr':
+			return 'April';
+		case 'May':
+			return 'May';
+		case 'Jun':
+			return 'June';
+		case 'Jul':
+			return 'July';
+		case 'Aug':
+			return 'August';
+		case 'Sep':
+			return 'September';
+		case 'Oct':
+			return 'October';
+		case 'Nov':
+			return 'November';
+		default:
+			return 'December';
+	}
+};
+var $elm$time$Time$Apr = {$: 'Apr'};
+var $elm$time$Time$Aug = {$: 'Aug'};
+var $elm$time$Time$Dec = {$: 'Dec'};
+var $elm$time$Time$Feb = {$: 'Feb'};
+var $elm$time$Time$Jan = {$: 'Jan'};
+var $elm$time$Time$Jul = {$: 'Jul'};
+var $elm$time$Time$Jun = {$: 'Jun'};
+var $elm$time$Time$Mar = {$: 'Mar'};
+var $elm$time$Time$May = {$: 'May'};
+var $elm$time$Time$Nov = {$: 'Nov'};
+var $elm$time$Time$Oct = {$: 'Oct'};
+var $elm$time$Time$Sep = {$: 'Sep'};
+var $justinmimbs$date$Date$numberToMonth = function (mn) {
+	var _v0 = A2($elm$core$Basics$max, 1, mn);
+	switch (_v0) {
+		case 1:
+			return $elm$time$Time$Jan;
+		case 2:
+			return $elm$time$Time$Feb;
+		case 3:
+			return $elm$time$Time$Mar;
+		case 4:
+			return $elm$time$Time$Apr;
+		case 5:
+			return $elm$time$Time$May;
+		case 6:
+			return $elm$time$Time$Jun;
+		case 7:
+			return $elm$time$Time$Jul;
+		case 8:
+			return $elm$time$Time$Aug;
+		case 9:
+			return $elm$time$Time$Sep;
+		case 10:
+			return $elm$time$Time$Oct;
+		case 11:
+			return $elm$time$Time$Nov;
+		default:
+			return $elm$time$Time$Dec;
+	}
+};
+var $justinmimbs$date$Date$fromCalendarParts = F3(
+	function (y, mn, d) {
+		return (!A3($justinmimbs$date$Date$isBetweenInt, 1, 12, mn)) ? $elm$core$Result$Err(
+			'Invalid date: ' + (('month ' + ($elm$core$String$fromInt(mn) + ' is out of range')) + (' (1 to 12)' + ('; received (year ' + ($elm$core$String$fromInt(y) + (', month ' + ($elm$core$String$fromInt(mn) + (', day ' + ($elm$core$String$fromInt(d) + ')'))))))))) : ((!A3(
+			$justinmimbs$date$Date$isBetweenInt,
+			1,
+			A2(
+				$justinmimbs$date$Date$daysInMonth,
+				y,
+				$justinmimbs$date$Date$numberToMonth(mn)),
+			d)) ? $elm$core$Result$Err(
+			'Invalid date: ' + (('day ' + ($elm$core$String$fromInt(d) + ' is out of range')) + ((' (1 to ' + ($elm$core$String$fromInt(
+				A2(
+					$justinmimbs$date$Date$daysInMonth,
+					y,
+					$justinmimbs$date$Date$numberToMonth(mn))) + ')')) + ((' for ' + $justinmimbs$date$Date$monthToName(
+				$justinmimbs$date$Date$numberToMonth(mn))) + ((((mn === 2) && (d === 29)) ? (' (' + ($elm$core$String$fromInt(y) + ' is not a leap year)')) : '') + ('; received (year ' + ($elm$core$String$fromInt(y) + (', month ' + ($elm$core$String$fromInt(mn) + (', day ' + ($elm$core$String$fromInt(d) + ')'))))))))))) : $elm$core$Result$Ok(
+			$justinmimbs$date$Date$RD(
+				($justinmimbs$date$Date$daysBeforeYear(y) + A2(
+					$justinmimbs$date$Date$daysBeforeMonth,
+					y,
+					$justinmimbs$date$Date$numberToMonth(mn))) + d)));
+	});
+var $justinmimbs$date$Date$fromOrdinalParts = F2(
+	function (y, od) {
+		var daysInYear = $justinmimbs$date$Date$isLeapYear(y) ? 366 : 365;
+		return (!A3($justinmimbs$date$Date$isBetweenInt, 1, daysInYear, od)) ? $elm$core$Result$Err(
+			'Invalid ordinal date: ' + (('ordinal-day ' + ($elm$core$String$fromInt(od) + ' is out of range')) + ((' (1 to ' + ($elm$core$String$fromInt(daysInYear) + ')')) + ((' for ' + $elm$core$String$fromInt(y)) + ('; received (year ' + ($elm$core$String$fromInt(y) + (', ordinal-day ' + ($elm$core$String$fromInt(od) + ')')))))))) : $elm$core$Result$Ok(
+			$justinmimbs$date$Date$RD(
+				$justinmimbs$date$Date$daysBeforeYear(y) + od));
+	});
+var $justinmimbs$date$Date$weekdayNumber = function (_v0) {
+	var rd = _v0.a;
+	var _v1 = A2($elm$core$Basics$modBy, 7, rd);
+	if (!_v1) {
+		return 7;
+	} else {
+		var n = _v1;
+		return n;
+	}
+};
+var $justinmimbs$date$Date$daysBeforeWeekYear = function (y) {
+	var jan4 = $justinmimbs$date$Date$daysBeforeYear(y) + 4;
+	return jan4 - $justinmimbs$date$Date$weekdayNumber(
+		$justinmimbs$date$Date$RD(jan4));
+};
+var $justinmimbs$date$Date$firstOfYear = function (y) {
+	return $justinmimbs$date$Date$RD(
+		$justinmimbs$date$Date$daysBeforeYear(y) + 1);
+};
+var $justinmimbs$date$Date$is53WeekYear = function (y) {
+	var wdnJan1 = $justinmimbs$date$Date$weekdayNumber(
+		$justinmimbs$date$Date$firstOfYear(y));
+	return (wdnJan1 === 4) || ((wdnJan1 === 3) && $justinmimbs$date$Date$isLeapYear(y));
+};
+var $justinmimbs$date$Date$fromWeekParts = F3(
+	function (wy, wn, wdn) {
+		var weeksInYear = $justinmimbs$date$Date$is53WeekYear(wy) ? 53 : 52;
+		return (!A3($justinmimbs$date$Date$isBetweenInt, 1, weeksInYear, wn)) ? $elm$core$Result$Err(
+			'Invalid week date: ' + (('week ' + ($elm$core$String$fromInt(wn) + ' is out of range')) + ((' (1 to ' + ($elm$core$String$fromInt(weeksInYear) + ')')) + ((' for ' + $elm$core$String$fromInt(wy)) + ('; received (year ' + ($elm$core$String$fromInt(wy) + (', week ' + ($elm$core$String$fromInt(wn) + (', weekday ' + ($elm$core$String$fromInt(wdn) + ')')))))))))) : ((!A3($justinmimbs$date$Date$isBetweenInt, 1, 7, wdn)) ? $elm$core$Result$Err(
+			'Invalid week date: ' + (('weekday ' + ($elm$core$String$fromInt(wdn) + ' is out of range')) + (' (1 to 7)' + ('; received (year ' + ($elm$core$String$fromInt(wy) + (', week ' + ($elm$core$String$fromInt(wn) + (', weekday ' + ($elm$core$String$fromInt(wdn) + ')'))))))))) : $elm$core$Result$Ok(
+			$justinmimbs$date$Date$RD(
+				($justinmimbs$date$Date$daysBeforeWeekYear(wy) + ((wn - 1) * 7)) + wdn)));
+	});
+var $justinmimbs$date$Date$fromYearAndDayOfYear = function (_v0) {
+	var y = _v0.a;
+	var doy = _v0.b;
+	switch (doy.$) {
+		case 'MonthAndDay':
+			var mn = doy.a;
+			var d = doy.b;
+			return A3($justinmimbs$date$Date$fromCalendarParts, y, mn, d);
+		case 'WeekAndWeekday':
+			var wn = doy.a;
+			var wdn = doy.b;
+			return A3($justinmimbs$date$Date$fromWeekParts, y, wn, wdn);
+		default:
+			var od = doy.a;
+			return A2($justinmimbs$date$Date$fromOrdinalParts, y, od);
+	}
+};
+var $justinmimbs$date$Date$int4 = A2(
+	$elm$parser$Parser$mapChompedString,
+	F2(
+		function (str, _v0) {
+			return A2(
+				$elm$core$Maybe$withDefault,
+				0,
+				$elm$core$String$toInt(str));
+		}),
+	A2(
+		$elm$parser$Parser$ignorer,
+		A2(
+			$elm$parser$Parser$ignorer,
+			A2(
+				$elm$parser$Parser$ignorer,
+				A2(
+					$elm$parser$Parser$ignorer,
+					A2(
+						$elm$parser$Parser$ignorer,
+						$elm$parser$Parser$succeed(_Utils_Tuple0),
+						$elm$parser$Parser$oneOf(
+							_List_fromArray(
+								[
+									$elm$parser$Parser$chompIf(
+									function (c) {
+										return _Utils_eq(
+											c,
+											_Utils_chr('-'));
+									}),
+									$elm$parser$Parser$succeed(_Utils_Tuple0)
+								]))),
+					$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
+				$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
+			$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
+		$elm$parser$Parser$chompIf($elm$core$Char$isDigit)));
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $elm$parser$Parser$Problem = function (a) {
+	return {$: 'Problem', a: a};
+};
+var $elm$parser$Parser$Advanced$problem = function (x) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A2(
+				$elm$parser$Parser$Advanced$Bad,
+				false,
+				A2($elm$parser$Parser$Advanced$fromState, s, x));
+		});
+};
+var $elm$parser$Parser$problem = function (msg) {
+	return $elm$parser$Parser$Advanced$problem(
+		$elm$parser$Parser$Problem(msg));
+};
+var $justinmimbs$date$Date$resultToParser = function (result) {
+	if (result.$ === 'Ok') {
+		var x = result.a;
+		return $elm$parser$Parser$succeed(x);
+	} else {
+		var message = result.a;
+		return $elm$parser$Parser$problem(message);
+	}
+};
+var $justinmimbs$date$Date$parser = A2(
+	$elm$parser$Parser$andThen,
+	A2($elm$core$Basics$composeR, $justinmimbs$date$Date$fromYearAndDayOfYear, $justinmimbs$date$Date$resultToParser),
+	A2(
+		$elm$parser$Parser$keeper,
+		A2(
+			$elm$parser$Parser$keeper,
+			$elm$parser$Parser$succeed($elm$core$Tuple$pair),
+			$justinmimbs$date$Date$int4),
+		$justinmimbs$date$Date$dayOfYear));
+var $elm$parser$Parser$DeadEnd = F3(
+	function (row, col, problem) {
+		return {col: col, problem: problem, row: row};
+	});
+var $elm$parser$Parser$problemToDeadEnd = function (p) {
+	return A3($elm$parser$Parser$DeadEnd, p.row, p.col, p.problem);
+};
+var $elm$parser$Parser$Advanced$bagToList = F2(
+	function (bag, list) {
+		bagToList:
+		while (true) {
+			switch (bag.$) {
+				case 'Empty':
+					return list;
+				case 'AddRight':
+					var bag1 = bag.a;
+					var x = bag.b;
+					var $temp$bag = bag1,
+						$temp$list = A2($elm$core$List$cons, x, list);
+					bag = $temp$bag;
+					list = $temp$list;
+					continue bagToList;
+				default:
+					var bag1 = bag.a;
+					var bag2 = bag.b;
+					var $temp$bag = bag1,
+						$temp$list = A2($elm$parser$Parser$Advanced$bagToList, bag2, list);
+					bag = $temp$bag;
+					list = $temp$list;
+					continue bagToList;
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$run = F2(
+	function (_v0, src) {
+		var parse = _v0.a;
+		var _v1 = parse(
+			{col: 1, context: _List_Nil, indent: 1, offset: 0, row: 1, src: src});
+		if (_v1.$ === 'Good') {
+			var value = _v1.b;
+			return $elm$core$Result$Ok(value);
+		} else {
+			var bag = _v1.b;
+			return $elm$core$Result$Err(
+				A2($elm$parser$Parser$Advanced$bagToList, bag, _List_Nil));
+		}
+	});
+var $elm$parser$Parser$run = F2(
+	function (parser, source) {
+		var _v0 = A2($elm$parser$Parser$Advanced$run, parser, source);
+		if (_v0.$ === 'Ok') {
+			var a = _v0.a;
+			return $elm$core$Result$Ok(a);
+		} else {
+			var problems = _v0.a;
+			return $elm$core$Result$Err(
+				A2($elm$core$List$map, $elm$parser$Parser$problemToDeadEnd, problems));
+		}
+	});
+var $justinmimbs$date$Date$fromIsoString = A2(
+	$elm$core$Basics$composeR,
+	$elm$parser$Parser$run(
+		A2(
+			$elm$parser$Parser$keeper,
+			$elm$parser$Parser$succeed($elm$core$Basics$identity),
+			A2(
+				$elm$parser$Parser$ignorer,
+				$justinmimbs$date$Date$parser,
+				A2(
+					$elm$parser$Parser$andThen,
+					$justinmimbs$date$Date$resultToParser,
+					$elm$parser$Parser$oneOf(
+						_List_fromArray(
+							[
+								A2($elm$parser$Parser$map, $elm$core$Result$Ok, $elm$parser$Parser$end),
+								A2(
+								$elm$parser$Parser$map,
+								$elm$core$Basics$always(
+									$elm$core$Result$Err('Expected a date only, not a date and time')),
+								$elm$parser$Parser$chompIf(
+									$elm$core$Basics$eq(
+										_Utils_chr('T')))),
+								$elm$parser$Parser$succeed(
+								$elm$core$Result$Err('Expected a date only'))
+							])))))),
+	$elm$core$Result$mapError(
+		A2(
+			$elm$core$Basics$composeR,
+			$elm$core$List$head,
+			A2(
+				$elm$core$Basics$composeR,
+				$elm$core$Maybe$map($justinmimbs$date$Date$deadEndToString),
+				$elm$core$Maybe$withDefault('')))));
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Parse$Pipeline$dateField = A2(
+	$elm$json$Json$Decode$andThen,
+	function (s) {
+		var _v0 = $justinmimbs$date$Date$fromIsoString(s);
+		if (_v0.$ === 'Ok') {
+			var d = _v0.a;
+			return $elm$json$Json$Decode$succeed(d);
+		} else {
+			var msg = _v0.a;
+			return $elm$json$Json$Decode$fail(msg);
+		}
+	},
+	$elm$json$Json$Decode$string);
+var $elm$json$Json$Decode$int = _Json_decodeInt;
+var $elm$json$Json$Decode$map8 = _Json_map8;
+var $elm$json$Json$Decode$null = _Json_decodeNull;
+var $elm$json$Json$Decode$oneOf = _Json_oneOf;
+var $elm$json$Json$Decode$nullable = function (decoder) {
+	return $elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
+			]));
+};
+var $author$project$Parse$Pipeline$optionalField = F2(
+	function (name, decoder) {
+		return $elm$json$Json$Decode$oneOf(
+			_List_fromArray(
+				[
+					A2(
+					$elm$json$Json$Decode$field,
+					name,
+					$elm$json$Json$Decode$nullable(decoder)),
+					$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+				]));
+	});
+var $elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _v0 = f(mx);
+		if (_v0.$ === 'Just') {
+			var x = _v0.a;
+			return A2($elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var $elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			$elm$core$List$foldr,
+			$elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var $elm$json$Json$Decode$list = _Json_decodeList;
 var $author$project$Domain$Listing$Beachfront = {$: 'Beachfront'};
 var $author$project$Domain$Listing$CityCenter = {$: 'CityCenter'};
 var $author$project$Domain$Listing$Mountain = {$: 'Mountain'};
@@ -5731,15 +6684,62 @@ var $author$project$Domain$Listing$tagFromString = function (raw) {
 			return $elm$core$Maybe$Nothing;
 	}
 };
-var $elm$core$Maybe$withDefault = F2(
-	function (_default, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return value;
-		} else {
-			return _default;
-		}
+var $author$project$Parse$Pipeline$tagsField = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			A2(
+			$elm$json$Json$Decode$field,
+			'tags',
+			A2(
+				$elm$json$Json$Decode$map,
+				$elm$core$List$filterMap($author$project$Domain$Listing$tagFromString),
+				$elm$json$Json$Decode$list($elm$json$Json$Decode$string))),
+			$elm$json$Json$Decode$succeed(_List_Nil)
+		]));
+var $author$project$Parse$Pipeline$partialDecoder = A9(
+	$elm$json$Json$Decode$map8,
+	$author$project$Parse$Heuristic$PartialQuery,
+	A2($author$project$Parse$Pipeline$optionalField, 'destination', $elm$json$Json$Decode$string),
+	A2($author$project$Parse$Pipeline$optionalField, 'checkIn', $author$project$Parse$Pipeline$dateField),
+	A2($author$project$Parse$Pipeline$optionalField, 'checkOut', $author$project$Parse$Pipeline$dateField),
+	A2($author$project$Parse$Pipeline$optionalField, 'adults', $elm$json$Json$Decode$int),
+	A2($author$project$Parse$Pipeline$optionalField, 'children', $elm$json$Json$Decode$int),
+	A2($author$project$Parse$Pipeline$optionalField, 'infants', $elm$json$Json$Decode$int),
+	A2($author$project$Parse$Pipeline$optionalField, 'pets', $elm$json$Json$Decode$int),
+	$author$project$Parse$Pipeline$tagsField);
+var $author$project$Parse$Pipeline$exemplarDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Parse$Pipeline$Exemplar,
+	A2($elm$json$Json$Decode$field, 'prompt', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'result', $author$project$Parse$Pipeline$partialDecoder));
+var $author$project$Parse$Pipeline$decodeExemplars = A2(
+	$elm$json$Json$Decode$field,
+	'exemplars',
+	$elm$json$Json$Decode$list($author$project$Parse$Pipeline$exemplarDecoder));
+var $author$project$Parse$Pipeline$OntologyEntry = F2(
+	function (text, hint) {
+		return {hint: hint, text: text};
 	});
+var $author$project$Parse$Pipeline$ontologyDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Parse$Pipeline$OntologyEntry,
+	A2($elm$json$Json$Decode$field, 'text', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'hint', $elm$json$Json$Decode$string));
+var $author$project$Parse$Pipeline$decodeOntology = A2(
+	$elm$json$Json$Decode$field,
+	'entries',
+	$elm$json$Json$Decode$list($author$project$Parse$Pipeline$ontologyDecoder));
+var $author$project$Domain$Catalog$Catalog = function (a) {
+	return {$: 'Catalog', a: a};
+};
+var $author$project$Domain$Listing$Listing = F8(
+	function (id, title, city, country, maxGuests, petsAllowed, tags, thumbnailUrl) {
+		return {city: city, country: country, id: id, maxGuests: maxGuests, petsAllowed: petsAllowed, tags: tags, thumbnailUrl: thumbnailUrl, title: title};
+	});
+var $author$project$Domain$Listing$ListingId = function (a) {
+	return {$: 'ListingId', a: a};
+};
+var $elm$json$Json$Decode$bool = _Json_decodeBool;
 var $author$project$Domain$Listing$tagDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (raw) {
@@ -6319,11 +7319,6 @@ var $elm$core$Dict$update = F3(
 			return A2($elm$core$Dict$remove, targetKey, dictionary);
 		}
 	});
-var $elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
 var $elm$http$Http$expectStringResponse = F2(
 	function (toMsg, toResult) {
 		return A3(
@@ -6331,17 +7326,6 @@ var $elm$http$Http$expectStringResponse = F2(
 			'',
 			$elm$core$Basics$identity,
 			A2($elm$core$Basics$composeR, toResult, toMsg));
-	});
-var $elm$core$Result$mapError = F2(
-	function (f, result) {
-		if (result.$ === 'Ok') {
-			var v = result.a;
-			return $elm$core$Result$Ok(v);
-		} else {
-			var e = result.a;
-			return $elm$core$Result$Err(
-				f(e));
-		}
 	});
 var $elm$http$Http$BadBody = function (a) {
 	return {$: 'BadBody', a: a};
@@ -6472,24 +7456,6 @@ var $elm$http$Http$onEffects = F4(
 			},
 			A3($elm$http$Http$updateReqs, router, cmds, state.reqs));
 	});
-var $elm$core$List$maybeCons = F3(
-	function (f, mx, xs) {
-		var _v0 = f(mx);
-		if (_v0.$ === 'Just') {
-			var x = _v0.a;
-			return A2($elm$core$List$cons, x, xs);
-		} else {
-			return xs;
-		}
-	});
-var $elm$core$List$filterMap = F2(
-	function (f, xs) {
-		return A3(
-			$elm$core$List$foldr,
-			$elm$core$List$maybeCons(f),
-			_List_Nil,
-			xs);
-	});
 var $elm$http$Http$maybeSend = F4(
 	function (router, desiredTracker, progress, _v0) {
 		var actualTracker = _v0.a;
@@ -6563,85 +7529,9 @@ var $elm$http$Http$get = function (r) {
 	return $elm$http$Http$request(
 		{body: $elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: $elm$core$Maybe$Nothing, tracker: $elm$core$Maybe$Nothing, url: r.url});
 };
-var $justinmimbs$date$Date$RD = function (a) {
-	return {$: 'RD', a: a};
-};
 var $elm$core$Basics$clamp = F3(
 	function (low, high, number) {
 		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
-	});
-var $elm$core$Basics$modBy = _Basics_modBy;
-var $elm$core$Basics$neq = _Utils_notEqual;
-var $justinmimbs$date$Date$isLeapYear = function (y) {
-	return ((!A2($elm$core$Basics$modBy, 4, y)) && (!(!A2($elm$core$Basics$modBy, 100, y)))) || (!A2($elm$core$Basics$modBy, 400, y));
-};
-var $justinmimbs$date$Date$daysBeforeMonth = F2(
-	function (y, m) {
-		var leapDays = $justinmimbs$date$Date$isLeapYear(y) ? 1 : 0;
-		switch (m.$) {
-			case 'Jan':
-				return 0;
-			case 'Feb':
-				return 31;
-			case 'Mar':
-				return 59 + leapDays;
-			case 'Apr':
-				return 90 + leapDays;
-			case 'May':
-				return 120 + leapDays;
-			case 'Jun':
-				return 151 + leapDays;
-			case 'Jul':
-				return 181 + leapDays;
-			case 'Aug':
-				return 212 + leapDays;
-			case 'Sep':
-				return 243 + leapDays;
-			case 'Oct':
-				return 273 + leapDays;
-			case 'Nov':
-				return 304 + leapDays;
-			default:
-				return 334 + leapDays;
-		}
-	});
-var $justinmimbs$date$Date$floorDiv = F2(
-	function (a, b) {
-		return $elm$core$Basics$floor(a / b);
-	});
-var $justinmimbs$date$Date$daysBeforeYear = function (y1) {
-	var y = y1 - 1;
-	var leapYears = (A2($justinmimbs$date$Date$floorDiv, y, 4) - A2($justinmimbs$date$Date$floorDiv, y, 100)) + A2($justinmimbs$date$Date$floorDiv, y, 400);
-	return (365 * y) + leapYears;
-};
-var $justinmimbs$date$Date$daysInMonth = F2(
-	function (y, m) {
-		switch (m.$) {
-			case 'Jan':
-				return 31;
-			case 'Feb':
-				return $justinmimbs$date$Date$isLeapYear(y) ? 29 : 28;
-			case 'Mar':
-				return 31;
-			case 'Apr':
-				return 30;
-			case 'May':
-				return 31;
-			case 'Jun':
-				return 30;
-			case 'Jul':
-				return 31;
-			case 'Aug':
-				return 31;
-			case 'Sep':
-				return 30;
-			case 'Oct':
-				return 31;
-			case 'Nov':
-				return 30;
-			default:
-				return 31;
-		}
 	});
 var $justinmimbs$date$Date$fromCalendarDate = F3(
 	function (y, m, d) {
@@ -6697,9 +7587,6 @@ var $elm$time$Time$toAdjustedMinutes = F2(
 			eras);
 	});
 var $elm$core$Basics$ge = _Utils_ge;
-var $elm$core$Basics$negate = function (n) {
-	return -n;
-};
 var $elm$time$Time$toCivil = function (minutes) {
 	var rawDay = A2($elm$time$Time$flooredDiv, minutes, 60 * 24) + 719468;
 	var era = (((rawDay >= 0) ? rawDay : (rawDay - 146096)) / 146097) | 0;
@@ -6720,18 +7607,6 @@ var $elm$time$Time$toDay = F2(
 		return $elm$time$Time$toCivil(
 			A2($elm$time$Time$toAdjustedMinutes, zone, time)).day;
 	});
-var $elm$time$Time$Apr = {$: 'Apr'};
-var $elm$time$Time$Aug = {$: 'Aug'};
-var $elm$time$Time$Dec = {$: 'Dec'};
-var $elm$time$Time$Feb = {$: 'Feb'};
-var $elm$time$Time$Jan = {$: 'Jan'};
-var $elm$time$Time$Jul = {$: 'Jul'};
-var $elm$time$Time$Jun = {$: 'Jun'};
-var $elm$time$Time$Mar = {$: 'Mar'};
-var $elm$time$Time$May = {$: 'May'};
-var $elm$time$Time$Nov = {$: 'Nov'};
-var $elm$time$Time$Oct = {$: 'Oct'};
-var $elm$time$Time$Sep = {$: 'Sep'};
 var $elm$time$Time$toMonth = F2(
 	function (zone, time) {
 		var _v0 = $elm$time$Time$toCivil(
@@ -6796,7 +7671,7 @@ var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
 var $justinmimbs$date$Date$today = A3($elm$core$Task$map2, $justinmimbs$date$Date$fromPosix, $elm$time$Time$here, $elm$time$Time$now);
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(
-		{adults: 1, catalog: $author$project$Main$LoadingNow, checkIn: '', checkOut: '', children: 0, infants: 0, pets: 0, prompt: '', selectedListing: $elm$core$Maybe$Nothing, today: $elm$core$Maybe$Nothing},
+		{adults: 1, catalog: $author$project$Main$LoadingNow, checkIn: '', checkOut: '', children: 0, datesFromSlm: false, embedCounter: 0, exemplarCorpus: $author$project$Main$CorpusEmpty, exemplars: _List_Nil, heuristicPartial: $elm$core$Maybe$Nothing, infants: 0, mergedPartial: $elm$core$Maybe$Nothing, ontology: _List_Nil, ontologyCorpus: $author$project$Main$CorpusEmpty, pendingPrompt: $elm$core$Maybe$Nothing, pets: 0, prompt: '', promptEmbed: $author$project$Main$PromptEmbedIdle, selectedListing: $elm$core$Maybe$Nothing, slmCounter: 0, slmLastError: $elm$core$Maybe$Nothing, slmRequestId: $elm$core$Maybe$Nothing, slmState: $author$project$Main$SlmIdle, today: $elm$core$Maybe$Nothing},
 		$elm$core$Platform$Cmd$batch(
 			_List_fromArray(
 				[
@@ -6805,89 +7680,305 @@ var $author$project$Main$init = function (_v0) {
 						expect: A2($elm$http$Http$expectJson, $author$project$Main$GotCatalog, $author$project$Domain$Catalog$decoder),
 						url: 'catalog.json'
 					}),
+					$elm$http$Http$get(
+					{
+						expect: A2($elm$http$Http$expectJson, $author$project$Main$GotExemplars, $author$project$Parse$Pipeline$decodeExemplars),
+						url: 'exemplars.json'
+					}),
+					$elm$http$Http$get(
+					{
+						expect: A2($elm$http$Http$expectJson, $author$project$Main$GotOntology, $author$project$Parse$Pipeline$decodeOntology),
+						url: 'ontology.json'
+					}),
 					A2($elm$core$Task$perform, $author$project$Main$GotToday, $justinmimbs$date$Date$today)
 				])));
 };
+var $author$project$Main$GotEmbedResponse = function (a) {
+	return {$: 'GotEmbedResponse', a: a};
+};
+var $author$project$Main$GotSlmResponse = function (a) {
+	return {$: 'GotSlmResponse', a: a};
+};
+var $author$project$Main$GotSlmStatus = function (a) {
+	return {$: 'GotSlmStatus', a: a};
+};
 var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $elm$json$Json$Decode$decodeValue = _Json_run;
+var $elm$json$Json$Decode$value = _Json_decodeValue;
+var $author$project$Embedding$MiniLm$embedResponse = _Platform_incomingPort('embedResponse', $elm$json$Json$Decode$value);
+var $author$project$Embedding$MiniLm$Response = F2(
+	function (id, result) {
+		return {id: id, result: result};
+	});
+var $elm$json$Json$Decode$float = _Json_decodeFloat;
+var $author$project$Embedding$MiniLm$responseDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Embedding$MiniLm$Response,
+	A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$int),
+	$elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2(
+				$elm$json$Json$Decode$map,
+				$elm$core$Result$Err,
+				A2($elm$json$Json$Decode$field, 'error', $elm$json$Json$Decode$string)),
+				A2(
+				$elm$json$Json$Decode$map,
+				$elm$core$Result$Ok,
+				A2(
+					$elm$json$Json$Decode$field,
+					'vector',
+					$elm$json$Json$Decode$list($elm$json$Json$Decode$float)))
+			])));
+var $author$project$Embedding$MiniLm$responseSubscription = function (toMsg) {
+	return $author$project$Embedding$MiniLm$embedResponse(
+		function (value) {
+			return toMsg(
+				A2(
+					$elm$core$Result$mapError,
+					$elm$json$Json$Decode$errorToString,
+					A2($elm$json$Json$Decode$decodeValue, $author$project$Embedding$MiniLm$responseDecoder, value)));
+		});
+};
+var $author$project$Slm$WebLlm$Response = F2(
+	function (id, result) {
+		return {id: id, result: result};
+	});
+var $author$project$Slm$WebLlm$responseDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Slm$WebLlm$Response,
+	A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$int),
+	$elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2(
+				$elm$json$Json$Decode$map,
+				$elm$core$Result$Err,
+				A2($elm$json$Json$Decode$field, 'error', $elm$json$Json$Decode$string)),
+				A2(
+				$elm$json$Json$Decode$map,
+				$elm$core$Result$Ok,
+				A2($elm$json$Json$Decode$field, 'result', $elm$json$Json$Decode$value))
+			])));
+var $author$project$Slm$WebLlm$slmResponse = _Platform_incomingPort('slmResponse', $elm$json$Json$Decode$value);
+var $author$project$Slm$WebLlm$responseSubscription = function (toMsg) {
+	return $author$project$Slm$WebLlm$slmResponse(
+		function (value) {
+			return toMsg(
+				A2(
+					$elm$core$Result$mapError,
+					$elm$json$Json$Decode$errorToString,
+					A2($elm$json$Json$Decode$decodeValue, $author$project$Slm$WebLlm$responseDecoder, value)));
+		});
+};
+var $author$project$Slm$WebLlm$slmStatus = _Platform_incomingPort('slmStatus', $elm$json$Json$Decode$value);
+var $author$project$Slm$WebLlm$LoadError = function (a) {
+	return {$: 'LoadError', a: a};
+};
+var $author$project$Slm$WebLlm$Loading = function (a) {
+	return {$: 'Loading', a: a};
+};
+var $author$project$Slm$WebLlm$Ready = {$: 'Ready'};
+var $author$project$Slm$WebLlm$statusDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (event) {
+		switch (event) {
+			case 'loading':
+				return A3(
+					$elm$json$Json$Decode$map2,
+					F2(
+						function (p, t) {
+							return $author$project$Slm$WebLlm$Loading(
+								{progress: p, text: t});
+						}),
+					A2($elm$json$Json$Decode$field, 'progress', $elm$json$Json$Decode$float),
+					A2($elm$json$Json$Decode$field, 'text', $elm$json$Json$Decode$string));
+			case 'ready':
+				return $elm$json$Json$Decode$succeed($author$project$Slm$WebLlm$Ready);
+			case 'error':
+				return A2(
+					$elm$json$Json$Decode$map,
+					$author$project$Slm$WebLlm$LoadError,
+					A2($elm$json$Json$Decode$field, 'message', $elm$json$Json$Decode$string));
+			default:
+				var other = event;
+				return $elm$json$Json$Decode$fail('unknown event: ' + other);
+		}
+	},
+	A2($elm$json$Json$Decode$field, 'event', $elm$json$Json$Decode$string));
+var $author$project$Slm$WebLlm$statusSubscription = function (toMsg) {
+	return $author$project$Slm$WebLlm$slmStatus(
+		function (value) {
+			return toMsg(
+				A2(
+					$elm$core$Result$mapError,
+					$elm$json$Json$Decode$errorToString,
+					A2($elm$json$Json$Decode$decodeValue, $author$project$Slm$WebLlm$statusDecoder, value)));
+		});
+};
+var $author$project$Main$subscriptions = function (_v0) {
+	return $elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				$author$project$Slm$WebLlm$statusSubscription($author$project$Main$GotSlmStatus),
+				$author$project$Slm$WebLlm$responseSubscription($author$project$Main$GotSlmResponse),
+				$author$project$Embedding$MiniLm$responseSubscription($author$project$Main$GotEmbedResponse)
+			]));
+};
 var $author$project$Main$LoadDone = function (a) {
 	return {$: 'LoadDone', a: a};
 };
 var $author$project$Main$LoadFailed = function (a) {
 	return {$: 'LoadFailed', a: a};
 };
-var $elm$core$Maybe$andThen = F2(
-	function (callback, maybeValue) {
-		if (maybeValue.$ === 'Just') {
-			var value = maybeValue.a;
-			return callback(value);
+var $author$project$Main$CorpusBuilding = function (a) {
+	return {$: 'CorpusBuilding', a: a};
+};
+var $author$project$Main$CorpusReady = function (a) {
+	return {$: 'CorpusReady', a: a};
+};
+var $author$project$Rag$Index$Index = function (a) {
+	return {$: 'Index', a: a};
+};
+var $author$project$Rag$Index$build = $author$project$Rag$Index$Index;
+var $elm$core$Dict$isEmpty = function (dict) {
+	if (dict.$ === 'RBEmpty_elm_builtin') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $author$project$Main$advanceBuilding = F3(
+	function (id, vector, state) {
+		var _v0 = A2($elm$core$Dict$get, id, state.pending);
+		if (_v0.$ === 'Nothing') {
+			return $author$project$Main$CorpusBuilding(state);
 		} else {
-			return $elm$core$Maybe$Nothing;
+			var entry = _v0.a;
+			var nextVectors = A2(
+				$elm$core$List$cons,
+				_Utils_Tuple2(vector, entry),
+				state.vectors);
+			var nextPending = A2($elm$core$Dict$remove, id, state.pending);
+			return $elm$core$Dict$isEmpty(nextPending) ? $author$project$Main$CorpusReady(
+				$author$project$Rag$Index$build(nextVectors)) : $author$project$Main$CorpusBuilding(
+				{pending: nextPending, vectors: nextVectors});
 		}
+	});
+var $author$project$Main$setExemplarCorpus = F2(
+	function (c, m) {
+		return _Utils_update(
+			m,
+			{exemplarCorpus: c});
+	});
+var $author$project$Main$advanceExemplarCorpus = F3(
+	function (id, vector, model) {
+		var _v0 = model.exemplarCorpus;
+		switch (_v0.$) {
+			case 'CorpusBuilding':
+				var state = _v0.a;
+				return A2(
+					$author$project$Main$setExemplarCorpus,
+					A3($author$project$Main$advanceBuilding, id, vector, state),
+					model);
+			case 'CorpusEmpty':
+				return model;
+			case 'CorpusReady':
+				return model;
+			default:
+				return model;
+		}
+	});
+var $author$project$Main$setOntologyCorpus = F2(
+	function (c, m) {
+		return _Utils_update(
+			m,
+			{ontologyCorpus: c});
+	});
+var $author$project$Main$advanceOntologyCorpus = F3(
+	function (id, vector, model) {
+		var _v0 = model.ontologyCorpus;
+		switch (_v0.$) {
+			case 'CorpusBuilding':
+				var state = _v0.a;
+				return A2(
+					$author$project$Main$setOntologyCorpus,
+					A3($author$project$Main$advanceBuilding, id, vector, state),
+					model);
+			case 'CorpusEmpty':
+				return model;
+			case 'CorpusReady':
+				return model;
+			default:
+				return model;
+		}
+	});
+var $author$project$Main$advanceCorpora = F3(
+	function (id, vector, model) {
+		return A3(
+			$author$project$Main$advanceOntologyCorpus,
+			id,
+			vector,
+			A3($author$project$Main$advanceExemplarCorpus, id, vector, model));
 	});
 var $author$project$Domain$Catalog$all = function (_v0) {
 	var xs = _v0.a;
 	return xs;
 };
-var $author$project$Main$catalogValue = function (loadable) {
-	switch (loadable.$) {
-		case 'LoadingNow':
-			return $elm$core$Maybe$Nothing;
-		case 'LoadFailed':
-			return $elm$core$Maybe$Nothing;
-		default:
-			var catalog = loadable.a;
-			return $elm$core$Maybe$Just(catalog);
-	}
-};
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
+var $elm$json$Json$Encode$int = _Json_wrap;
+var $elm$json$Json$Encode$list = F2(
+	function (func, entries) {
+		return _Json_wrap(
+			A3(
+				$elm$core$List$foldl,
+				_Json_addEntry(func),
+				_Json_emptyArray(_Utils_Tuple0),
+				entries));
 	});
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $author$project$Main$findListingIdForCity = F2(
-	function (city, loadable) {
-		return A2(
-			$elm$core$Maybe$andThen,
-			function (catalog) {
-				return A2(
-					$elm$core$Maybe$map,
-					function ($) {
-						return $.id;
-					},
-					$elm$core$List$head(
-						A2(
-							$elm$core$List$filter,
-							function (l) {
-								return _Utils_eq(l.city, city);
-							},
-							$author$project$Domain$Catalog$all(catalog))));
-			},
-			$author$project$Main$catalogValue(loadable));
-	});
-var $author$project$Main$orElse = F2(
-	function (fallback, m) {
+var $elm$json$Json$Encode$null = _Json_encodeNull;
+var $author$project$Parse$Pipeline$maybeOr = F2(
+	function (enc, m) {
 		if (m.$ === 'Just') {
-			return m;
+			var x = m.a;
+			return enc(x);
 		} else {
-			return fallback;
+			return $elm$json$Json$Encode$null;
 		}
 	});
+var $elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v0, obj) {
+					var k = _v0.a;
+					var v = _v0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var $elm$json$Json$Encode$string = _Json_wrap;
+var $author$project$Domain$Listing$tagToString = function (tag) {
+	switch (tag.$) {
+		case 'Beachfront':
+			return 'beachfront';
+		case 'PetFriendly':
+			return 'pet-friendly';
+		case 'Wifi':
+			return 'wifi';
+		case 'Workspace':
+			return 'workspace';
+		case 'Pool':
+			return 'pool';
+		case 'Mountain':
+			return 'mountain';
+		case 'CityCenter':
+			return 'city-center';
+		default:
+			return 'quiet';
+	}
+};
 var $justinmimbs$date$Date$monthToNumber = function (m) {
 	switch (m.$) {
 		case 'Jan':
@@ -6914,35 +8005,6 @@ var $justinmimbs$date$Date$monthToNumber = function (m) {
 			return 11;
 		default:
 			return 12;
-	}
-};
-var $justinmimbs$date$Date$numberToMonth = function (mn) {
-	var _v0 = A2($elm$core$Basics$max, 1, mn);
-	switch (_v0) {
-		case 1:
-			return $elm$time$Time$Jan;
-		case 2:
-			return $elm$time$Time$Feb;
-		case 3:
-			return $elm$time$Time$Mar;
-		case 4:
-			return $elm$time$Time$Apr;
-		case 5:
-			return $elm$time$Time$May;
-		case 6:
-			return $elm$time$Time$Jun;
-		case 7:
-			return $elm$time$Time$Jul;
-		case 8:
-			return $elm$time$Time$Aug;
-		case 9:
-			return $elm$time$Time$Sep;
-		case 10:
-			return $elm$time$Time$Oct;
-		case 11:
-			return $elm$time$Time$Nov;
-		default:
-			return $elm$time$Time$Dec;
 	}
 };
 var $justinmimbs$date$Date$toCalendarDateHelp = F3(
@@ -7074,21 +8136,6 @@ var $elm$core$String$right = F2(
 			$elm$core$String$length(string),
 			string);
 	});
-var $justinmimbs$date$Date$weekdayNumber = function (_v0) {
-	var rd = _v0.a;
-	var _v1 = A2($elm$core$Basics$modBy, 7, rd);
-	if (!_v1) {
-		return 7;
-	} else {
-		var n = _v1;
-		return n;
-	}
-};
-var $justinmimbs$date$Date$daysBeforeWeekYear = function (y) {
-	var jan4 = $justinmimbs$date$Date$daysBeforeYear(y) + 4;
-	return jan4 - $justinmimbs$date$Date$weekdayNumber(
-		$justinmimbs$date$Date$RD(jan4));
-};
 var $elm$time$Time$Fri = {$: 'Fri'};
 var $elm$time$Time$Mon = {$: 'Mon'};
 var $elm$time$Time$Sat = {$: 'Sat'};
@@ -7378,181 +8425,11 @@ var $justinmimbs$date$Date$formatWithTokens = F3(
 var $justinmimbs$date$Pattern$Literal = function (a) {
 	return {$: 'Literal', a: a};
 };
-var $elm$parser$Parser$Advanced$Bad = F2(
-	function (a, b) {
-		return {$: 'Bad', a: a, b: b};
-	});
-var $elm$parser$Parser$Advanced$Good = F3(
-	function (a, b, c) {
-		return {$: 'Good', a: a, b: b, c: c};
-	});
-var $elm$parser$Parser$Advanced$Parser = function (a) {
-	return {$: 'Parser', a: a};
-};
-var $elm$parser$Parser$Advanced$andThen = F2(
-	function (callback, _v0) {
-		var parseA = _v0.a;
-		return $elm$parser$Parser$Advanced$Parser(
-			function (s0) {
-				var _v1 = parseA(s0);
-				if (_v1.$ === 'Bad') {
-					var p = _v1.a;
-					var x = _v1.b;
-					return A2($elm$parser$Parser$Advanced$Bad, p, x);
-				} else {
-					var p1 = _v1.a;
-					var a = _v1.b;
-					var s1 = _v1.c;
-					var _v2 = callback(a);
-					var parseB = _v2.a;
-					var _v3 = parseB(s1);
-					if (_v3.$ === 'Bad') {
-						var p2 = _v3.a;
-						var x = _v3.b;
-						return A2($elm$parser$Parser$Advanced$Bad, p1 || p2, x);
-					} else {
-						var p2 = _v3.a;
-						var b = _v3.b;
-						var s2 = _v3.c;
-						return A3($elm$parser$Parser$Advanced$Good, p1 || p2, b, s2);
-					}
-				}
-			});
-	});
-var $elm$parser$Parser$andThen = $elm$parser$Parser$Advanced$andThen;
-var $elm$core$Basics$always = F2(
-	function (a, _v0) {
-		return a;
-	});
-var $elm$parser$Parser$Advanced$map2 = F3(
-	function (func, _v0, _v1) {
-		var parseA = _v0.a;
-		var parseB = _v1.a;
-		return $elm$parser$Parser$Advanced$Parser(
-			function (s0) {
-				var _v2 = parseA(s0);
-				if (_v2.$ === 'Bad') {
-					var p = _v2.a;
-					var x = _v2.b;
-					return A2($elm$parser$Parser$Advanced$Bad, p, x);
-				} else {
-					var p1 = _v2.a;
-					var a = _v2.b;
-					var s1 = _v2.c;
-					var _v3 = parseB(s1);
-					if (_v3.$ === 'Bad') {
-						var p2 = _v3.a;
-						var x = _v3.b;
-						return A2($elm$parser$Parser$Advanced$Bad, p1 || p2, x);
-					} else {
-						var p2 = _v3.a;
-						var b = _v3.b;
-						var s2 = _v3.c;
-						return A3(
-							$elm$parser$Parser$Advanced$Good,
-							p1 || p2,
-							A2(func, a, b),
-							s2);
-					}
-				}
-			});
-	});
-var $elm$parser$Parser$Advanced$ignorer = F2(
-	function (keepParser, ignoreParser) {
-		return A3($elm$parser$Parser$Advanced$map2, $elm$core$Basics$always, keepParser, ignoreParser);
-	});
-var $elm$parser$Parser$ignorer = $elm$parser$Parser$Advanced$ignorer;
-var $elm$parser$Parser$Advanced$succeed = function (a) {
-	return $elm$parser$Parser$Advanced$Parser(
-		function (s) {
-			return A3($elm$parser$Parser$Advanced$Good, false, a, s);
-		});
-};
-var $elm$parser$Parser$succeed = $elm$parser$Parser$Advanced$succeed;
-var $elm$parser$Parser$Expecting = function (a) {
-	return {$: 'Expecting', a: a};
-};
-var $elm$parser$Parser$Advanced$Token = F2(
-	function (a, b) {
-		return {$: 'Token', a: a, b: b};
-	});
-var $elm$parser$Parser$toToken = function (str) {
-	return A2(
-		$elm$parser$Parser$Advanced$Token,
-		str,
-		$elm$parser$Parser$Expecting(str));
-};
-var $elm$parser$Parser$Advanced$AddRight = F2(
-	function (a, b) {
-		return {$: 'AddRight', a: a, b: b};
-	});
-var $elm$parser$Parser$Advanced$DeadEnd = F4(
-	function (row, col, problem, contextStack) {
-		return {col: col, contextStack: contextStack, problem: problem, row: row};
-	});
-var $elm$parser$Parser$Advanced$Empty = {$: 'Empty'};
-var $elm$parser$Parser$Advanced$fromState = F2(
-	function (s, x) {
-		return A2(
-			$elm$parser$Parser$Advanced$AddRight,
-			$elm$parser$Parser$Advanced$Empty,
-			A4($elm$parser$Parser$Advanced$DeadEnd, s.row, s.col, x, s.context));
-	});
-var $elm$parser$Parser$Advanced$isSubString = _Parser_isSubString;
-var $elm$core$Basics$not = _Basics_not;
-var $elm$parser$Parser$Advanced$token = function (_v0) {
-	var str = _v0.a;
-	var expecting = _v0.b;
-	var progress = !$elm$core$String$isEmpty(str);
-	return $elm$parser$Parser$Advanced$Parser(
-		function (s) {
-			var _v1 = A5($elm$parser$Parser$Advanced$isSubString, str, s.offset, s.row, s.col, s.src);
-			var newOffset = _v1.a;
-			var newRow = _v1.b;
-			var newCol = _v1.c;
-			return _Utils_eq(newOffset, -1) ? A2(
-				$elm$parser$Parser$Advanced$Bad,
-				false,
-				A2($elm$parser$Parser$Advanced$fromState, s, expecting)) : A3(
-				$elm$parser$Parser$Advanced$Good,
-				progress,
-				_Utils_Tuple0,
-				{col: newCol, context: s.context, indent: s.indent, offset: newOffset, row: newRow, src: s.src});
-		});
-};
-var $elm$parser$Parser$token = function (str) {
-	return $elm$parser$Parser$Advanced$token(
-		$elm$parser$Parser$toToken(str));
-};
 var $justinmimbs$date$Pattern$escapedQuote = A2(
 	$elm$parser$Parser$ignorer,
 	$elm$parser$Parser$succeed(
 		$justinmimbs$date$Pattern$Literal('\'')),
 	$elm$parser$Parser$token('\'\''));
-var $elm$parser$Parser$UnexpectedChar = {$: 'UnexpectedChar'};
-var $elm$parser$Parser$Advanced$isSubChar = _Parser_isSubChar;
-var $elm$parser$Parser$Advanced$chompIf = F2(
-	function (isGood, expecting) {
-		return $elm$parser$Parser$Advanced$Parser(
-			function (s) {
-				var newOffset = A3($elm$parser$Parser$Advanced$isSubChar, isGood, s.offset, s.src);
-				return _Utils_eq(newOffset, -1) ? A2(
-					$elm$parser$Parser$Advanced$Bad,
-					false,
-					A2($elm$parser$Parser$Advanced$fromState, s, expecting)) : (_Utils_eq(newOffset, -2) ? A3(
-					$elm$parser$Parser$Advanced$Good,
-					true,
-					_Utils_Tuple0,
-					{col: 1, context: s.context, indent: s.indent, offset: s.offset + 1, row: s.row + 1, src: s.src}) : A3(
-					$elm$parser$Parser$Advanced$Good,
-					true,
-					_Utils_Tuple0,
-					{col: s.col + 1, context: s.context, indent: s.indent, offset: newOffset, row: s.row, src: s.src}));
-			});
-	});
-var $elm$parser$Parser$chompIf = function (isGood) {
-	return A2($elm$parser$Parser$Advanced$chompIf, isGood, $elm$parser$Parser$UnexpectedChar);
-};
 var $justinmimbs$date$Pattern$Field = F2(
 	function (a, b) {
 		return {$: 'Field', a: a, b: b};
@@ -7609,27 +8486,6 @@ var $elm$parser$Parser$Advanced$getOffset = $elm$parser$Parser$Advanced$Parser(
 		return A3($elm$parser$Parser$Advanced$Good, false, s.offset, s);
 	});
 var $elm$parser$Parser$getOffset = $elm$parser$Parser$Advanced$getOffset;
-var $elm$parser$Parser$Advanced$keeper = F2(
-	function (parseFunc, parseArg) {
-		return A3($elm$parser$Parser$Advanced$map2, $elm$core$Basics$apL, parseFunc, parseArg);
-	});
-var $elm$parser$Parser$keeper = $elm$parser$Parser$Advanced$keeper;
-var $elm$parser$Parser$Problem = function (a) {
-	return {$: 'Problem', a: a};
-};
-var $elm$parser$Parser$Advanced$problem = function (x) {
-	return $elm$parser$Parser$Advanced$Parser(
-		function (s) {
-			return A2(
-				$elm$parser$Parser$Advanced$Bad,
-				false,
-				A2($elm$parser$Parser$Advanced$fromState, s, x));
-		});
-};
-var $elm$parser$Parser$problem = function (msg) {
-	return $elm$parser$Parser$Advanced$problem(
-		$elm$parser$Parser$Problem(msg));
-};
 var $elm$core$String$foldr = _String_foldr;
 var $elm$core$String$toList = function (string) {
 	return A3($elm$core$String$foldr, $elm$core$List$cons, _List_Nil, string);
@@ -7657,31 +8513,6 @@ var $justinmimbs$date$Pattern$fieldRepeats = function (str) {
 		return $elm$parser$Parser$problem('expected exactly one char');
 	}
 };
-var $elm$parser$Parser$Advanced$mapChompedString = F2(
-	function (func, _v0) {
-		var parse = _v0.a;
-		return $elm$parser$Parser$Advanced$Parser(
-			function (s0) {
-				var _v1 = parse(s0);
-				if (_v1.$ === 'Bad') {
-					var p = _v1.a;
-					var x = _v1.b;
-					return A2($elm$parser$Parser$Advanced$Bad, p, x);
-				} else {
-					var p = _v1.a;
-					var a = _v1.b;
-					var s1 = _v1.c;
-					return A3(
-						$elm$parser$Parser$Advanced$Good,
-						p,
-						A2(
-							func,
-							A3($elm$core$String$slice, s0.offset, s1.offset, s0.src),
-							a),
-						s1);
-				}
-			});
-	});
 var $elm$parser$Parser$Advanced$getChompedString = function (parser) {
 	return A2($elm$parser$Parser$Advanced$mapChompedString, $elm$core$Basics$always, parser);
 };
@@ -7725,29 +8556,6 @@ var $justinmimbs$date$Pattern$isLiteralChar = function (_char) {
 		_char,
 		_Utils_chr('\''))) && (!$elm$core$Char$isAlpha(_char));
 };
-var $elm$parser$Parser$Advanced$map = F2(
-	function (func, _v0) {
-		var parse = _v0.a;
-		return $elm$parser$Parser$Advanced$Parser(
-			function (s0) {
-				var _v1 = parse(s0);
-				if (_v1.$ === 'Good') {
-					var p = _v1.a;
-					var a = _v1.b;
-					var s1 = _v1.c;
-					return A3(
-						$elm$parser$Parser$Advanced$Good,
-						p,
-						func(a),
-						s1);
-				} else {
-					var p = _v1.a;
-					var x = _v1.b;
-					return A2($elm$parser$Parser$Advanced$Bad, p, x);
-				}
-			});
-	});
-var $elm$parser$Parser$map = $elm$parser$Parser$Advanced$map;
 var $justinmimbs$date$Pattern$literal = A2(
 	$elm$parser$Parser$map,
 	$justinmimbs$date$Pattern$Literal,
@@ -7759,62 +8567,6 @@ var $justinmimbs$date$Pattern$literal = A2(
 				$elm$parser$Parser$succeed(_Utils_Tuple0),
 				$elm$parser$Parser$chompIf($justinmimbs$date$Pattern$isLiteralChar)),
 			$elm$parser$Parser$chompWhile($justinmimbs$date$Pattern$isLiteralChar))));
-var $elm$parser$Parser$Advanced$Append = F2(
-	function (a, b) {
-		return {$: 'Append', a: a, b: b};
-	});
-var $elm$parser$Parser$Advanced$oneOfHelp = F3(
-	function (s0, bag, parsers) {
-		oneOfHelp:
-		while (true) {
-			if (!parsers.b) {
-				return A2($elm$parser$Parser$Advanced$Bad, false, bag);
-			} else {
-				var parse = parsers.a.a;
-				var remainingParsers = parsers.b;
-				var _v1 = parse(s0);
-				if (_v1.$ === 'Good') {
-					var step = _v1;
-					return step;
-				} else {
-					var step = _v1;
-					var p = step.a;
-					var x = step.b;
-					if (p) {
-						return step;
-					} else {
-						var $temp$s0 = s0,
-							$temp$bag = A2($elm$parser$Parser$Advanced$Append, bag, x),
-							$temp$parsers = remainingParsers;
-						s0 = $temp$s0;
-						bag = $temp$bag;
-						parsers = $temp$parsers;
-						continue oneOfHelp;
-					}
-				}
-			}
-		}
-	});
-var $elm$parser$Parser$Advanced$oneOf = function (parsers) {
-	return $elm$parser$Parser$Advanced$Parser(
-		function (s) {
-			return A3($elm$parser$Parser$Advanced$oneOfHelp, s, $elm$parser$Parser$Advanced$Empty, parsers);
-		});
-};
-var $elm$parser$Parser$oneOf = $elm$parser$Parser$Advanced$oneOf;
-var $elm$parser$Parser$ExpectingEnd = {$: 'ExpectingEnd'};
-var $elm$parser$Parser$Advanced$end = function (x) {
-	return $elm$parser$Parser$Advanced$Parser(
-		function (s) {
-			return _Utils_eq(
-				$elm$core$String$length(s.src),
-				s.offset) ? A3($elm$parser$Parser$Advanced$Good, false, _Utils_Tuple0, s) : A2(
-				$elm$parser$Parser$Advanced$Bad,
-				false,
-				A2($elm$parser$Parser$Advanced$fromState, s, x));
-		});
-};
-var $elm$parser$Parser$end = $elm$parser$Parser$Advanced$end($elm$parser$Parser$ExpectingEnd);
 var $justinmimbs$date$Pattern$quotedHelp = function (result) {
 	return $elm$parser$Parser$oneOf(
 		_List_fromArray(
@@ -7885,65 +8637,6 @@ var $justinmimbs$date$Pattern$patternHelp = function (tokens) {
 				})
 			]));
 };
-var $elm$parser$Parser$DeadEnd = F3(
-	function (row, col, problem) {
-		return {col: col, problem: problem, row: row};
-	});
-var $elm$parser$Parser$problemToDeadEnd = function (p) {
-	return A3($elm$parser$Parser$DeadEnd, p.row, p.col, p.problem);
-};
-var $elm$parser$Parser$Advanced$bagToList = F2(
-	function (bag, list) {
-		bagToList:
-		while (true) {
-			switch (bag.$) {
-				case 'Empty':
-					return list;
-				case 'AddRight':
-					var bag1 = bag.a;
-					var x = bag.b;
-					var $temp$bag = bag1,
-						$temp$list = A2($elm$core$List$cons, x, list);
-					bag = $temp$bag;
-					list = $temp$list;
-					continue bagToList;
-				default:
-					var bag1 = bag.a;
-					var bag2 = bag.b;
-					var $temp$bag = bag1,
-						$temp$list = A2($elm$parser$Parser$Advanced$bagToList, bag2, list);
-					bag = $temp$bag;
-					list = $temp$list;
-					continue bagToList;
-			}
-		}
-	});
-var $elm$parser$Parser$Advanced$run = F2(
-	function (_v0, src) {
-		var parse = _v0.a;
-		var _v1 = parse(
-			{col: 1, context: _List_Nil, indent: 1, offset: 0, row: 1, src: src});
-		if (_v1.$ === 'Good') {
-			var value = _v1.b;
-			return $elm$core$Result$Ok(value);
-		} else {
-			var bag = _v1.b;
-			return $elm$core$Result$Err(
-				A2($elm$parser$Parser$Advanced$bagToList, bag, _List_Nil));
-		}
-	});
-var $elm$parser$Parser$run = F2(
-	function (parser, source) {
-		var _v0 = A2($elm$parser$Parser$Advanced$run, parser, source);
-		if (_v0.$ === 'Ok') {
-			var a = _v0.a;
-			return $elm$core$Result$Ok(a);
-		} else {
-			var problems = _v0.a;
-			return $elm$core$Result$Err(
-				A2($elm$core$List$map, $elm$parser$Parser$problemToDeadEnd, problems));
-		}
-	});
 var $elm$core$Result$withDefault = F2(
 	function (def, result) {
 		if (result.$ === 'Ok') {
@@ -7971,34 +8664,6 @@ var $justinmimbs$date$Date$formatWithLanguage = F2(
 			$justinmimbs$date$Pattern$fromString(pattern));
 		return A2($justinmimbs$date$Date$formatWithTokens, language, tokens);
 	});
-var $justinmimbs$date$Date$monthToName = function (m) {
-	switch (m.$) {
-		case 'Jan':
-			return 'January';
-		case 'Feb':
-			return 'February';
-		case 'Mar':
-			return 'March';
-		case 'Apr':
-			return 'April';
-		case 'May':
-			return 'May';
-		case 'Jun':
-			return 'June';
-		case 'Jul':
-			return 'July';
-		case 'Aug':
-			return 'August';
-		case 'Sep':
-			return 'September';
-		case 'Oct':
-			return 'October';
-		case 'Nov':
-			return 'November';
-		default:
-			return 'December';
-	}
-};
 var $justinmimbs$date$Date$weekdayToName = function (wd) {
 	switch (wd.$) {
 		case 'Mon':
@@ -8034,57 +8699,54 @@ var $justinmimbs$date$Date$format = function (pattern) {
 	return A2($justinmimbs$date$Date$formatWithLanguage, $justinmimbs$date$Date$language_en, pattern);
 };
 var $justinmimbs$date$Date$toIsoString = $justinmimbs$date$Date$format('yyyy-MM-dd');
-var $author$project$Main$applyPartial = F2(
-	function (model, partial) {
-		return _Utils_update(
-			model,
-			{
-				adults: A2($elm$core$Maybe$withDefault, model.adults, partial.adults),
-				checkIn: A2(
-					$elm$core$Maybe$withDefault,
-					model.checkIn,
-					A2($elm$core$Maybe$map, $justinmimbs$date$Date$toIsoString, partial.checkIn)),
-				checkOut: A2(
-					$elm$core$Maybe$withDefault,
-					model.checkOut,
-					A2($elm$core$Maybe$map, $justinmimbs$date$Date$toIsoString, partial.checkOut)),
-				children: A2($elm$core$Maybe$withDefault, model.children, partial.children),
-				infants: A2($elm$core$Maybe$withDefault, model.infants, partial.infants),
-				pets: A2($elm$core$Maybe$withDefault, model.pets, partial.pets),
-				selectedListing: A2(
-					$author$project$Main$orElse,
-					model.selectedListing,
-					A2(
-						$elm$core$Maybe$andThen,
-						function (city) {
-							return A2($author$project$Main$findListingIdForCity, city, model.catalog);
-						},
-						partial.destination))
-			});
-	});
-var $elm$core$Maybe$map2 = F3(
-	function (func, ma, mb) {
-		if (ma.$ === 'Nothing') {
-			return $elm$core$Maybe$Nothing;
-		} else {
-			var a = ma.a;
-			if (mb.$ === 'Nothing') {
-				return $elm$core$Maybe$Nothing;
-			} else {
-				var b = mb.a;
-				return $elm$core$Maybe$Just(
-					A2(func, a, b));
-			}
-		}
-	});
-var $elm$core$Tuple$pair = F2(
-	function (a, b) {
-		return _Utils_Tuple2(a, b);
-	});
-var $author$project$Parse$Heuristic$firstJust = A2(
-	$elm$core$Basics$composeR,
-	$elm$core$List$filterMap($elm$core$Basics$identity),
-	$elm$core$List$head);
+var $author$project$Parse$Pipeline$encodePartialJson = function (p) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'destination',
+				A2($author$project$Parse$Pipeline$maybeOr, $elm$json$Json$Encode$string, p.destination)),
+				_Utils_Tuple2(
+				'checkIn',
+				A2(
+					$author$project$Parse$Pipeline$maybeOr,
+					A2($elm$core$Basics$composeR, $justinmimbs$date$Date$toIsoString, $elm$json$Json$Encode$string),
+					p.checkIn)),
+				_Utils_Tuple2(
+				'checkOut',
+				A2(
+					$author$project$Parse$Pipeline$maybeOr,
+					A2($elm$core$Basics$composeR, $justinmimbs$date$Date$toIsoString, $elm$json$Json$Encode$string),
+					p.checkOut)),
+				_Utils_Tuple2(
+				'adults',
+				A2($author$project$Parse$Pipeline$maybeOr, $elm$json$Json$Encode$int, p.adults)),
+				_Utils_Tuple2(
+				'children',
+				A2($author$project$Parse$Pipeline$maybeOr, $elm$json$Json$Encode$int, p.children)),
+				_Utils_Tuple2(
+				'infants',
+				A2($author$project$Parse$Pipeline$maybeOr, $elm$json$Json$Encode$int, p.infants)),
+				_Utils_Tuple2(
+				'pets',
+				A2($author$project$Parse$Pipeline$maybeOr, $elm$json$Json$Encode$int, p.pets)),
+				_Utils_Tuple2(
+				'tags',
+				A2(
+					$elm$json$Json$Encode$list,
+					A2($elm$core$Basics$composeR, $author$project$Domain$Listing$tagToString, $elm$json$Json$Encode$string),
+					p.tags))
+			]));
+};
+var $author$project$Parse$Pipeline$encodePartial = function (p) {
+	return A2(
+		$elm$json$Json$Encode$encode,
+		0,
+		$author$project$Parse$Pipeline$encodePartialJson(p));
+};
+var $author$project$Parse$Pipeline$exemplarToText = function (e) {
+	return 'PROMPT: ' + (e.prompt + ('\nRESULT: ' + $author$project$Parse$Pipeline$encodePartial(e.result)));
+};
 var $elm$core$List$any = F2(
 	function (isOkay, list) {
 		any:
@@ -8106,6 +8768,783 @@ var $elm$core$List$any = F2(
 			}
 		}
 	});
+var $elm$core$List$member = F2(
+	function (x, xs) {
+		return A2(
+			$elm$core$List$any,
+			function (a) {
+				return _Utils_eq(a, x);
+			},
+			xs);
+	});
+var $author$project$Parse$Pipeline$uniqueStrings = A2(
+	$elm$core$List$foldr,
+	F2(
+		function (x, acc) {
+			return A2($elm$core$List$member, x, acc) ? acc : A2($elm$core$List$cons, x, acc);
+		}),
+	_List_Nil);
+var $author$project$Parse$Pipeline$buildSystemPrompt = function (args) {
+	var tagsList = 'beachfront, pet-friendly, wifi, workspace, pool, mountain, city-center, quiet';
+	var partialText = $author$project$Parse$Pipeline$encodePartial(args.partial);
+	var ontologyText = A2(
+		$elm$core$String$join,
+		'\n',
+		A2(
+			$elm$core$List$map,
+			function (e) {
+				return '- ' + e.text;
+			},
+			args.ontology));
+	var examplesText = A2(
+		$elm$core$String$join,
+		'\n\n',
+		A2($elm$core$List$map, $author$project$Parse$Pipeline$exemplarToText, args.exemplars));
+	var cities = A2(
+		$elm$core$String$join,
+		', ',
+		$author$project$Parse$Pipeline$uniqueStrings(
+			A2(
+				$elm$core$List$map,
+				function ($) {
+					return $.city;
+				},
+				$author$project$Domain$Catalog$all(args.catalog))));
+	return A2(
+		$elm$core$String$join,
+		'\n\n',
+		_List_fromArray(
+			[
+				'You extract structured booking queries from natural-language prompts. Output ONLY valid JSON, no prose, no markdown.',
+				'TODAY: ' + $justinmimbs$date$Date$toIsoString(args.today),
+				'AVAILABLE CITIES: ' + cities,
+				'AVAILABLE TAGS: ' + tagsList,
+				'OUTPUT SHAPE: {\"destination\": string|null, \"checkIn\": YYYY-MM-DD|null, \"checkOut\": YYYY-MM-DD|null, \"adults\": int|null, \"children\": int|null, \"infants\": int|null, \"pets\": int|null, \"tags\": [string,...]}',
+				'ONTOLOGY HINTS:\n' + ontologyText,
+				'EXAMPLES:\n' + examplesText,
+				'INITIAL EXTRACTION (from heuristic, may be partial; preserve correct fields, fill nulls):\n' + partialText,
+				'Use null for unknown fields. Tags array can be empty.'
+			]));
+};
+var $author$project$Main$catalogValue = function (loadable) {
+	switch (loadable.$) {
+		case 'LoadingNow':
+			return $elm$core$Maybe$Nothing;
+		case 'LoadFailed':
+			return $elm$core$Maybe$Nothing;
+		default:
+			var catalog = loadable.a;
+			return $elm$core$Maybe$Just(catalog);
+	}
+};
+var $author$project$Slm$WebLlm$slmGenerate = _Platform_outgoingPort('slmGenerate', $elm$core$Basics$identity);
+var $author$project$Slm$WebLlm$generate = function (args) {
+	return $author$project$Slm$WebLlm$slmGenerate(
+		$elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'id',
+					$elm$json$Json$Encode$int(args.id)),
+					_Utils_Tuple2(
+					'system',
+					$elm$json$Json$Encode$string(args.system)),
+					_Utils_Tuple2(
+					'prompt',
+					$elm$json$Json$Encode$string(args.prompt)),
+					_Utils_Tuple2('schema', args.schema),
+					_Utils_Tuple2(
+					'maxTokens',
+					$elm$json$Json$Encode$int(args.maxTokens))
+				])));
+};
+var $elm$core$Maybe$map2 = F3(
+	function (func, ma, mb) {
+		if (ma.$ === 'Nothing') {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var a = ma.a;
+			if (mb.$ === 'Nothing') {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var b = mb.a;
+				return $elm$core$Maybe$Just(
+					A2(func, a, b));
+			}
+		}
+	});
+var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
+var $elm$json$Json$Encode$bool = _Json_wrap;
+var $author$project$Parse$Pipeline$typeOrNull = function (t) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'type',
+				A2(
+					$elm$json$Json$Encode$list,
+					$elm$json$Json$Encode$string,
+					_List_fromArray(
+						[t, 'null'])))
+			]));
+};
+var $author$project$Parse$Pipeline$schemaJson = $elm$json$Json$Encode$object(
+	_List_fromArray(
+		[
+			_Utils_Tuple2(
+			'type',
+			$elm$json$Json$Encode$string('object')),
+			_Utils_Tuple2(
+			'properties',
+			$elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'destination',
+						$author$project$Parse$Pipeline$typeOrNull('string')),
+						_Utils_Tuple2(
+						'checkIn',
+						$author$project$Parse$Pipeline$typeOrNull('string')),
+						_Utils_Tuple2(
+						'checkOut',
+						$author$project$Parse$Pipeline$typeOrNull('string')),
+						_Utils_Tuple2(
+						'adults',
+						$author$project$Parse$Pipeline$typeOrNull('integer')),
+						_Utils_Tuple2(
+						'children',
+						$author$project$Parse$Pipeline$typeOrNull('integer')),
+						_Utils_Tuple2(
+						'infants',
+						$author$project$Parse$Pipeline$typeOrNull('integer')),
+						_Utils_Tuple2(
+						'pets',
+						$author$project$Parse$Pipeline$typeOrNull('integer')),
+						_Utils_Tuple2(
+						'tags',
+						$elm$json$Json$Encode$object(
+							_List_fromArray(
+								[
+									_Utils_Tuple2(
+									'type',
+									$elm$json$Json$Encode$string('array')),
+									_Utils_Tuple2(
+									'items',
+									$elm$json$Json$Encode$object(
+										_List_fromArray(
+											[
+												_Utils_Tuple2(
+												'type',
+												$elm$json$Json$Encode$string('string'))
+											])))
+								])))
+					]))),
+			_Utils_Tuple2(
+			'required',
+			A2(
+				$elm$json$Json$Encode$list,
+				$elm$json$Json$Encode$string,
+				_List_fromArray(
+					['destination', 'checkIn', 'checkOut', 'adults', 'children', 'infants', 'pets', 'tags']))),
+			_Utils_Tuple2(
+			'additionalProperties',
+			$elm$json$Json$Encode$bool(false))
+		]));
+var $author$project$Main$fireSlmRequestWith = F5(
+	function (exemplars, ontology, prompt, partial, model) {
+		return A2(
+			$elm$core$Maybe$withDefault,
+			_Utils_Tuple2(model, $elm$core$Platform$Cmd$none),
+			A2(
+				$elm$core$Maybe$map,
+				function (_v0) {
+					var today = _v0.a;
+					var catalog = _v0.b;
+					var systemPrompt = $author$project$Parse$Pipeline$buildSystemPrompt(
+						{catalog: catalog, exemplars: exemplars, ontology: ontology, partial: partial, today: today});
+					var nextId = model.slmCounter + 1;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								pendingPrompt: $elm$core$Maybe$Nothing,
+								slmCounter: nextId,
+								slmRequestId: $elm$core$Maybe$Just(nextId)
+							}),
+						$author$project$Slm$WebLlm$generate(
+							{id: nextId, maxTokens: 512, prompt: prompt, schema: $author$project$Parse$Pipeline$schemaJson, system: systemPrompt}));
+				},
+				A3(
+					$elm$core$Maybe$map2,
+					$elm$core$Tuple$pair,
+					model.today,
+					$author$project$Main$catalogValue(model.catalog))));
+	});
+var $elm$core$List$sum = function (numbers) {
+	return A3($elm$core$List$foldl, $elm$core$Basics$add, 0, numbers);
+};
+var $author$project$Rag$Index$dot = F2(
+	function (a, b) {
+		return $elm$core$List$sum(
+			A3($elm$core$List$map2, $elm$core$Basics$mul, a, b));
+	});
+var $elm$core$Tuple$second = function (_v0) {
+	var y = _v0.b;
+	return y;
+};
+var $elm$core$List$sortBy = _List_sortBy;
+var $elm$core$List$takeReverse = F3(
+	function (n, list, kept) {
+		takeReverse:
+		while (true) {
+			if (n <= 0) {
+				return kept;
+			} else {
+				if (!list.b) {
+					return kept;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs,
+						$temp$kept = A2($elm$core$List$cons, x, kept);
+					n = $temp$n;
+					list = $temp$list;
+					kept = $temp$kept;
+					continue takeReverse;
+				}
+			}
+		}
+	});
+var $elm$core$List$takeTailRec = F2(
+	function (n, list) {
+		return $elm$core$List$reverse(
+			A3($elm$core$List$takeReverse, n, list, _List_Nil));
+	});
+var $elm$core$List$takeFast = F3(
+	function (ctr, n, list) {
+		if (n <= 0) {
+			return _List_Nil;
+		} else {
+			var _v0 = _Utils_Tuple2(n, list);
+			_v0$1:
+			while (true) {
+				_v0$5:
+				while (true) {
+					if (!_v0.b.b) {
+						return list;
+					} else {
+						if (_v0.b.b.b) {
+							switch (_v0.a) {
+								case 1:
+									break _v0$1;
+								case 2:
+									var _v2 = _v0.b;
+									var x = _v2.a;
+									var _v3 = _v2.b;
+									var y = _v3.a;
+									return _List_fromArray(
+										[x, y]);
+								case 3:
+									if (_v0.b.b.b.b) {
+										var _v4 = _v0.b;
+										var x = _v4.a;
+										var _v5 = _v4.b;
+										var y = _v5.a;
+										var _v6 = _v5.b;
+										var z = _v6.a;
+										return _List_fromArray(
+											[x, y, z]);
+									} else {
+										break _v0$5;
+									}
+								default:
+									if (_v0.b.b.b.b && _v0.b.b.b.b.b) {
+										var _v7 = _v0.b;
+										var x = _v7.a;
+										var _v8 = _v7.b;
+										var y = _v8.a;
+										var _v9 = _v8.b;
+										var z = _v9.a;
+										var _v10 = _v9.b;
+										var w = _v10.a;
+										var tl = _v10.b;
+										return (ctr > 1000) ? A2(
+											$elm$core$List$cons,
+											x,
+											A2(
+												$elm$core$List$cons,
+												y,
+												A2(
+													$elm$core$List$cons,
+													z,
+													A2(
+														$elm$core$List$cons,
+														w,
+														A2($elm$core$List$takeTailRec, n - 4, tl))))) : A2(
+											$elm$core$List$cons,
+											x,
+											A2(
+												$elm$core$List$cons,
+												y,
+												A2(
+													$elm$core$List$cons,
+													z,
+													A2(
+														$elm$core$List$cons,
+														w,
+														A3($elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
+									} else {
+										break _v0$5;
+									}
+							}
+						} else {
+							if (_v0.a === 1) {
+								break _v0$1;
+							} else {
+								break _v0$5;
+							}
+						}
+					}
+				}
+				return list;
+			}
+			var _v1 = _v0.b;
+			var x = _v1.a;
+			return _List_fromArray(
+				[x]);
+		}
+	});
+var $elm$core$List$take = F2(
+	function (n, list) {
+		return A3($elm$core$List$takeFast, 0, n, list);
+	});
+var $author$project$Rag$Index$query = F3(
+	function (q, k, _v0) {
+		var entries = _v0.a;
+		return A2(
+			$elm$core$List$map,
+			$elm$core$Tuple$second,
+			A2(
+				$elm$core$List$take,
+				k,
+				A2(
+					$elm$core$List$sortBy,
+					A2($elm$core$Basics$composeR, $elm$core$Tuple$first, $elm$core$Basics$negate),
+					A2(
+						$elm$core$List$map,
+						function (_v1) {
+							var v = _v1.a;
+							var payload = _v1.b;
+							return _Utils_Tuple2(
+								A2($author$project$Rag$Index$dot, q, v),
+								payload);
+						},
+						entries))));
+	});
+var $author$project$Main$retrieveFromCorpus = F4(
+	function (k, vec, corpus, fallback) {
+		switch (corpus.$) {
+			case 'CorpusReady':
+				var idx = corpus.a;
+				return A3($author$project$Rag$Index$query, vec, k, idx);
+			case 'CorpusEmpty':
+				return fallback;
+			case 'CorpusBuilding':
+				return fallback;
+			default:
+				return fallback;
+		}
+	});
+var $author$project$Main$topKExemplars = 4;
+var $author$project$Main$topKOntology = 6;
+var $author$project$Main$firePromptWithRetrieval = F4(
+	function (vector, prompt, partial, model) {
+		var ontology = A4($author$project$Main$retrieveFromCorpus, $author$project$Main$topKOntology, vector, model.ontologyCorpus, model.ontology);
+		var exemplars = A4($author$project$Main$retrieveFromCorpus, $author$project$Main$topKExemplars, vector, model.exemplarCorpus, model.exemplars);
+		return A5($author$project$Main$fireSlmRequestWith, exemplars, ontology, prompt, partial, model);
+	});
+var $author$project$Main$promptEmbedMatch = F2(
+	function (id, pe) {
+		if (pe.$ === 'PromptEmbedPending') {
+			var p = pe.a;
+			return _Utils_eq(p.id, id) ? $elm$core$Maybe$Just(
+				{partial: p.partial, prompt: p.prompt}) : $elm$core$Maybe$Nothing;
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $author$project$Main$applyEmbedVector = F3(
+	function (id, vector, model) {
+		var _v0 = A2($author$project$Main$promptEmbedMatch, id, model.promptEmbed);
+		if (_v0.$ === 'Just') {
+			var prompt = _v0.a.prompt;
+			var partial = _v0.a.partial;
+			return A4(
+				$author$project$Main$firePromptWithRetrieval,
+				vector,
+				prompt,
+				partial,
+				_Utils_update(
+					model,
+					{promptEmbed: $author$project$Main$PromptEmbedIdle}));
+		} else {
+			return _Utils_Tuple2(
+				A3($author$project$Main$advanceCorpora, id, vector, model),
+				$elm$core$Platform$Cmd$none);
+		}
+	});
+var $author$project$Main$clearPromptEmbedIfMatch = F2(
+	function (id, model) {
+		var _v0 = A2($author$project$Main$promptEmbedMatch, id, model.promptEmbed);
+		if (_v0.$ === 'Just') {
+			return _Utils_update(
+				model,
+				{promptEmbed: $author$project$Main$PromptEmbedIdle});
+		} else {
+			return model;
+		}
+	});
+var $author$project$Main$CorpusFailed = function (a) {
+	return {$: 'CorpusFailed', a: a};
+};
+var $elm$core$Dict$member = F2(
+	function (key, dict) {
+		var _v0 = A2($elm$core$Dict$get, key, dict);
+		if (_v0.$ === 'Just') {
+			return true;
+		} else {
+			return false;
+		}
+	});
+var $author$project$Main$failExemplarCorpusIfPending = F3(
+	function (id, err, model) {
+		var _v0 = model.exemplarCorpus;
+		switch (_v0.$) {
+			case 'CorpusBuilding':
+				var state = _v0.a;
+				return A2($elm$core$Dict$member, id, state.pending) ? A2(
+					$author$project$Main$setExemplarCorpus,
+					$author$project$Main$CorpusFailed(err),
+					model) : model;
+			case 'CorpusEmpty':
+				return model;
+			case 'CorpusReady':
+				return model;
+			default:
+				return model;
+		}
+	});
+var $author$project$Main$failOntologyCorpusIfPending = F3(
+	function (id, err, model) {
+		var _v0 = model.ontologyCorpus;
+		switch (_v0.$) {
+			case 'CorpusBuilding':
+				var state = _v0.a;
+				return A2($elm$core$Dict$member, id, state.pending) ? A2(
+					$author$project$Main$setOntologyCorpus,
+					$author$project$Main$CorpusFailed(err),
+					model) : model;
+			case 'CorpusEmpty':
+				return model;
+			case 'CorpusReady':
+				return model;
+			default:
+				return model;
+		}
+	});
+var $author$project$Main$failEmbedById = F3(
+	function (id, err, model) {
+		return A3(
+			$author$project$Main$failOntologyCorpusIfPending,
+			id,
+			err,
+			A3(
+				$author$project$Main$failExemplarCorpusIfPending,
+				id,
+				err,
+				A2($author$project$Main$clearPromptEmbedIfMatch, id, model)));
+	});
+var $author$project$Main$applyEmbedResult = F2(
+	function (_v0, model) {
+		var id = _v0.id;
+		var result = _v0.result;
+		if (result.$ === 'Err') {
+			var err = result.a;
+			return _Utils_Tuple2(
+				A3($author$project$Main$failEmbedById, id, err, model),
+				$elm$core$Platform$Cmd$none);
+		} else {
+			var vector = result.a;
+			return A3($author$project$Main$applyEmbedVector, id, vector, model);
+		}
+	});
+var $author$project$Main$handleEmbedResponse = F2(
+	function (result, model) {
+		if (result.$ === 'Err') {
+			return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+		} else {
+			var response = result.a;
+			return A2($author$project$Main$applyEmbedResult, response, model);
+		}
+	});
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $author$project$Main$filtersFromPartial = function (p) {
+	return {
+		destination: p.destination,
+		petsRequested: A2($elm$core$Maybe$withDefault, 0, p.pets) > 0,
+		tags: p.tags,
+		totalGuests: A2($elm$core$Maybe$withDefault, 1, p.adults) + A2($elm$core$Maybe$withDefault, 0, p.children)
+	};
+};
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $elm$core$String$toLower = _String_toLower;
+var $author$project$Domain$Catalog$passesHard = F2(
+	function (f, l) {
+		var petsOk = (!f.petsRequested) || l.petsAllowed;
+		var cityOk = function () {
+			var _v0 = f.destination;
+			if (_v0.$ === 'Just') {
+				var c = _v0.a;
+				return _Utils_eq(
+					$elm$core$String$toLower(l.city),
+					$elm$core$String$toLower(c));
+			} else {
+				return true;
+			}
+		}();
+		var capacityOk = _Utils_cmp(f.totalGuests, l.maxGuests) < 1;
+		return cityOk && (capacityOk && petsOk);
+	});
+var $author$project$Domain$Catalog$softScore = F2(
+	function (f, l) {
+		return $elm$core$List$length(
+			A2(
+				$elm$core$List$filter,
+				function (t) {
+					return A2($elm$core$List$member, t, f.tags);
+				},
+				l.tags));
+	});
+var $author$project$Domain$Catalog$matchAgainst = F2(
+	function (filters, _v0) {
+		var xs = _v0.a;
+		return A2(
+			$elm$core$List$sortBy,
+			function (l) {
+				return -A2($author$project$Domain$Catalog$softScore, filters, l);
+			},
+			A2(
+				$elm$core$List$filter,
+				$author$project$Domain$Catalog$passesHard(filters),
+				xs));
+	});
+var $author$project$Main$bestListingId = F2(
+	function (loadable, partial) {
+		var _v0 = partial.destination;
+		if (_v0.$ === 'Nothing') {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			return A2(
+				$elm$core$Maybe$map,
+				function ($) {
+					return $.id;
+				},
+				A2(
+					$elm$core$Maybe$andThen,
+					$elm$core$List$head,
+					A2(
+						$elm$core$Maybe$map,
+						function (c) {
+							return A2(
+								$author$project$Domain$Catalog$matchAgainst,
+								$author$project$Main$filtersFromPartial(partial),
+								c);
+						},
+						$author$project$Main$catalogValue(loadable))));
+		}
+	});
+var $author$project$Main$orElse = F2(
+	function (fallback, m) {
+		if (m.$ === 'Just') {
+			return m;
+		} else {
+			return fallback;
+		}
+	});
+var $author$project$Main$applyPartial = F2(
+	function (model, partial) {
+		return _Utils_update(
+			model,
+			{
+				adults: A2($elm$core$Maybe$withDefault, model.adults, partial.adults),
+				checkIn: A2(
+					$elm$core$Maybe$withDefault,
+					model.checkIn,
+					A2($elm$core$Maybe$map, $justinmimbs$date$Date$toIsoString, partial.checkIn)),
+				checkOut: A2(
+					$elm$core$Maybe$withDefault,
+					model.checkOut,
+					A2($elm$core$Maybe$map, $justinmimbs$date$Date$toIsoString, partial.checkOut)),
+				children: A2($elm$core$Maybe$withDefault, model.children, partial.children),
+				infants: A2($elm$core$Maybe$withDefault, model.infants, partial.infants),
+				pets: A2($elm$core$Maybe$withDefault, model.pets, partial.pets),
+				selectedListing: A2(
+					$author$project$Main$orElse,
+					model.selectedListing,
+					A2($author$project$Main$bestListingId, model.catalog, partial))
+			});
+	});
+var $author$project$Parse$Pipeline$isJust = function (m) {
+	if (m.$ === 'Just') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $author$project$Parse$Pipeline$isComplete = function (partial) {
+	return $author$project$Parse$Pipeline$isJust(partial.destination) && ($author$project$Parse$Pipeline$isJust(partial.checkIn) && $author$project$Parse$Pipeline$isJust(partial.checkOut));
+};
+var $author$project$Main$isJust = function (m) {
+	if (m.$ === 'Just') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $author$project$Main$SlmLoading = function (a) {
+	return {$: 'SlmLoading', a: a};
+};
+var $author$project$Main$PromptEmbedPending = function (a) {
+	return {$: 'PromptEmbedPending', a: a};
+};
+var $author$project$Embedding$MiniLm$embedRequest = _Platform_outgoingPort('embedRequest', $elm$core$Basics$identity);
+var $author$project$Embedding$MiniLm$embed = function (_v0) {
+	var id = _v0.id;
+	var text = _v0.text;
+	return $author$project$Embedding$MiniLm$embedRequest(
+		$elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'id',
+					$elm$json$Json$Encode$int(id)),
+					_Utils_Tuple2(
+					'text',
+					$elm$json$Json$Encode$string(text))
+				])));
+};
+var $author$project$Main$embedPromptThenFire = F3(
+	function (prompt, partial, model) {
+		var nextId = model.embedCounter + 1;
+		return _Utils_Tuple2(
+			_Utils_update(
+				model,
+				{
+					embedCounter: nextId,
+					pendingPrompt: $elm$core$Maybe$Nothing,
+					promptEmbed: $author$project$Main$PromptEmbedPending(
+						{id: nextId, partial: partial, prompt: prompt})
+				}),
+			$author$project$Embedding$MiniLm$embed(
+				{id: nextId, text: prompt}));
+	});
+var $author$project$Main$dispatchToSlm = F3(
+	function (prompt, partial, model) {
+		var _v0 = _Utils_Tuple2(model.exemplarCorpus, model.ontologyCorpus);
+		if ((_v0.a.$ === 'CorpusReady') && (_v0.b.$ === 'CorpusReady')) {
+			return A3($author$project$Main$embedPromptThenFire, prompt, partial, model);
+		} else {
+			return A5($author$project$Main$fireSlmRequestWith, model.exemplars, model.ontology, prompt, partial, model);
+		}
+	});
+var $author$project$Slm$WebLlm$slmInit = _Platform_outgoingPort('slmInit', $elm$core$Basics$identity);
+var $author$project$Slm$WebLlm$init = function (_v0) {
+	var modelId = _v0.modelId;
+	return $author$project$Slm$WebLlm$slmInit(
+		$elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'modelId',
+					$elm$json$Json$Encode$string(modelId))
+				])));
+};
+var $author$project$Main$modelId = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+var $author$project$Main$triggerSlm = F3(
+	function (prompt, partial, model) {
+		var _v0 = model.slmState;
+		switch (_v0.$) {
+			case 'SlmIdle':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							pendingPrompt: $elm$core$Maybe$Just(prompt),
+							slmState: $author$project$Main$SlmLoading(
+								{progress: 0, text: 'starting'})
+						}),
+					$author$project$Slm$WebLlm$init(
+						{modelId: $author$project$Main$modelId}));
+			case 'SlmLoading':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							pendingPrompt: $elm$core$Maybe$Just(prompt)
+						}),
+					$elm$core$Platform$Cmd$none);
+			case 'SlmReady':
+				return A3($author$project$Main$dispatchToSlm, prompt, partial, model);
+			default:
+				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+		}
+	});
+var $elm$core$String$trim = _String_trim;
+var $author$project$Main$applyHeuristicAndDispatch = F3(
+	function (raw, partial, model) {
+		var heuristicHasDates = $author$project$Main$isJust(partial.checkIn) && $author$project$Main$isJust(partial.checkOut);
+		var applied = A2($author$project$Main$applyPartial, model, partial);
+		var withFlags = _Utils_update(
+			applied,
+			{
+				datesFromSlm: heuristicHasDates ? false : applied.datesFromSlm,
+				heuristicPartial: $elm$core$Maybe$Just(partial),
+				mergedPartial: $elm$core$Maybe$Just(partial)
+			});
+		return $elm$core$String$isEmpty(
+			$elm$core$String$trim(raw)) ? _Utils_Tuple2(
+			_Utils_update(
+				withFlags,
+				{datesFromSlm: false, mergedPartial: $elm$core$Maybe$Nothing, pendingPrompt: $elm$core$Maybe$Nothing, slmLastError: $elm$core$Maybe$Nothing}),
+			$elm$core$Platform$Cmd$none) : ($author$project$Parse$Pipeline$isComplete(partial) ? _Utils_Tuple2(
+			_Utils_update(
+				withFlags,
+				{pendingPrompt: $elm$core$Maybe$Nothing}),
+			$elm$core$Platform$Cmd$none) : A3($author$project$Main$triggerSlm, raw, partial, withFlags));
+	});
+var $author$project$Parse$Heuristic$firstJust = A2(
+	$elm$core$Basics$composeR,
+	$elm$core$List$filterMap($elm$core$Basics$identity),
+	$elm$core$List$head);
 var $elm$regex$Regex$Match = F4(
 	function (match, index, number, submatches) {
 		return {index: index, match: match, number: number, submatches: submatches};
@@ -8475,345 +9914,6 @@ var $author$project$Parse$Heuristic$parseDayFirstRange = F2(
 					$author$project$Parse$Heuristic$rgx(pattern),
 					text)));
 	});
-var $justinmimbs$date$Date$deadEndToString = function (_v0) {
-	var problem = _v0.problem;
-	if (problem.$ === 'Problem') {
-		var message = problem.a;
-		return message;
-	} else {
-		return 'Expected a date in ISO 8601 format';
-	}
-};
-var $justinmimbs$date$Date$MonthAndDay = F2(
-	function (a, b) {
-		return {$: 'MonthAndDay', a: a, b: b};
-	});
-var $justinmimbs$date$Date$OrdinalDay = function (a) {
-	return {$: 'OrdinalDay', a: a};
-};
-var $justinmimbs$date$Date$WeekAndWeekday = F2(
-	function (a, b) {
-		return {$: 'WeekAndWeekday', a: a, b: b};
-	});
-var $elm$parser$Parser$Advanced$backtrackable = function (_v0) {
-	var parse = _v0.a;
-	return $elm$parser$Parser$Advanced$Parser(
-		function (s0) {
-			var _v1 = parse(s0);
-			if (_v1.$ === 'Bad') {
-				var x = _v1.b;
-				return A2($elm$parser$Parser$Advanced$Bad, false, x);
-			} else {
-				var a = _v1.b;
-				var s1 = _v1.c;
-				return A3($elm$parser$Parser$Advanced$Good, false, a, s1);
-			}
-		});
-};
-var $elm$parser$Parser$backtrackable = $elm$parser$Parser$Advanced$backtrackable;
-var $elm$parser$Parser$Advanced$commit = function (a) {
-	return $elm$parser$Parser$Advanced$Parser(
-		function (s) {
-			return A3($elm$parser$Parser$Advanced$Good, true, a, s);
-		});
-};
-var $elm$parser$Parser$commit = $elm$parser$Parser$Advanced$commit;
-var $elm$parser$Parser$mapChompedString = $elm$parser$Parser$Advanced$mapChompedString;
-var $justinmimbs$date$Date$int1 = A2(
-	$elm$parser$Parser$mapChompedString,
-	F2(
-		function (str, _v0) {
-			return A2(
-				$elm$core$Maybe$withDefault,
-				0,
-				$elm$core$String$toInt(str));
-		}),
-	$elm$parser$Parser$chompIf($elm$core$Char$isDigit));
-var $justinmimbs$date$Date$int2 = A2(
-	$elm$parser$Parser$mapChompedString,
-	F2(
-		function (str, _v0) {
-			return A2(
-				$elm$core$Maybe$withDefault,
-				0,
-				$elm$core$String$toInt(str));
-		}),
-	A2(
-		$elm$parser$Parser$ignorer,
-		A2(
-			$elm$parser$Parser$ignorer,
-			$elm$parser$Parser$succeed(_Utils_Tuple0),
-			$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
-		$elm$parser$Parser$chompIf($elm$core$Char$isDigit)));
-var $justinmimbs$date$Date$int3 = A2(
-	$elm$parser$Parser$mapChompedString,
-	F2(
-		function (str, _v0) {
-			return A2(
-				$elm$core$Maybe$withDefault,
-				0,
-				$elm$core$String$toInt(str));
-		}),
-	A2(
-		$elm$parser$Parser$ignorer,
-		A2(
-			$elm$parser$Parser$ignorer,
-			A2(
-				$elm$parser$Parser$ignorer,
-				$elm$parser$Parser$succeed(_Utils_Tuple0),
-				$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
-			$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
-		$elm$parser$Parser$chompIf($elm$core$Char$isDigit)));
-var $justinmimbs$date$Date$dayOfYear = $elm$parser$Parser$oneOf(
-	_List_fromArray(
-		[
-			A2(
-			$elm$parser$Parser$keeper,
-			A2(
-				$elm$parser$Parser$ignorer,
-				$elm$parser$Parser$succeed($elm$core$Basics$identity),
-				$elm$parser$Parser$token('-')),
-			$elm$parser$Parser$oneOf(
-				_List_fromArray(
-					[
-						$elm$parser$Parser$backtrackable(
-						A2(
-							$elm$parser$Parser$andThen,
-							$elm$parser$Parser$commit,
-							A2($elm$parser$Parser$map, $justinmimbs$date$Date$OrdinalDay, $justinmimbs$date$Date$int3))),
-						A2(
-						$elm$parser$Parser$keeper,
-						A2(
-							$elm$parser$Parser$keeper,
-							$elm$parser$Parser$succeed($justinmimbs$date$Date$MonthAndDay),
-							$justinmimbs$date$Date$int2),
-						$elm$parser$Parser$oneOf(
-							_List_fromArray(
-								[
-									A2(
-									$elm$parser$Parser$keeper,
-									A2(
-										$elm$parser$Parser$ignorer,
-										$elm$parser$Parser$succeed($elm$core$Basics$identity),
-										$elm$parser$Parser$token('-')),
-									$justinmimbs$date$Date$int2),
-									$elm$parser$Parser$succeed(1)
-								]))),
-						A2(
-						$elm$parser$Parser$keeper,
-						A2(
-							$elm$parser$Parser$keeper,
-							A2(
-								$elm$parser$Parser$ignorer,
-								$elm$parser$Parser$succeed($justinmimbs$date$Date$WeekAndWeekday),
-								$elm$parser$Parser$token('W')),
-							$justinmimbs$date$Date$int2),
-						$elm$parser$Parser$oneOf(
-							_List_fromArray(
-								[
-									A2(
-									$elm$parser$Parser$keeper,
-									A2(
-										$elm$parser$Parser$ignorer,
-										$elm$parser$Parser$succeed($elm$core$Basics$identity),
-										$elm$parser$Parser$token('-')),
-									$justinmimbs$date$Date$int1),
-									$elm$parser$Parser$succeed(1)
-								])))
-					]))),
-			$elm$parser$Parser$backtrackable(
-			A2(
-				$elm$parser$Parser$andThen,
-				$elm$parser$Parser$commit,
-				A2(
-					$elm$parser$Parser$keeper,
-					A2(
-						$elm$parser$Parser$keeper,
-						$elm$parser$Parser$succeed($justinmimbs$date$Date$MonthAndDay),
-						$justinmimbs$date$Date$int2),
-					$elm$parser$Parser$oneOf(
-						_List_fromArray(
-							[
-								$justinmimbs$date$Date$int2,
-								$elm$parser$Parser$succeed(1)
-							]))))),
-			A2($elm$parser$Parser$map, $justinmimbs$date$Date$OrdinalDay, $justinmimbs$date$Date$int3),
-			A2(
-			$elm$parser$Parser$keeper,
-			A2(
-				$elm$parser$Parser$keeper,
-				A2(
-					$elm$parser$Parser$ignorer,
-					$elm$parser$Parser$succeed($justinmimbs$date$Date$WeekAndWeekday),
-					$elm$parser$Parser$token('W')),
-				$justinmimbs$date$Date$int2),
-			$elm$parser$Parser$oneOf(
-				_List_fromArray(
-					[
-						$justinmimbs$date$Date$int1,
-						$elm$parser$Parser$succeed(1)
-					]))),
-			$elm$parser$Parser$succeed(
-			$justinmimbs$date$Date$OrdinalDay(1))
-		]));
-var $justinmimbs$date$Date$isBetweenInt = F3(
-	function (a, b, x) {
-		return (_Utils_cmp(a, x) < 1) && (_Utils_cmp(x, b) < 1);
-	});
-var $justinmimbs$date$Date$fromCalendarParts = F3(
-	function (y, mn, d) {
-		return (!A3($justinmimbs$date$Date$isBetweenInt, 1, 12, mn)) ? $elm$core$Result$Err(
-			'Invalid date: ' + (('month ' + ($elm$core$String$fromInt(mn) + ' is out of range')) + (' (1 to 12)' + ('; received (year ' + ($elm$core$String$fromInt(y) + (', month ' + ($elm$core$String$fromInt(mn) + (', day ' + ($elm$core$String$fromInt(d) + ')'))))))))) : ((!A3(
-			$justinmimbs$date$Date$isBetweenInt,
-			1,
-			A2(
-				$justinmimbs$date$Date$daysInMonth,
-				y,
-				$justinmimbs$date$Date$numberToMonth(mn)),
-			d)) ? $elm$core$Result$Err(
-			'Invalid date: ' + (('day ' + ($elm$core$String$fromInt(d) + ' is out of range')) + ((' (1 to ' + ($elm$core$String$fromInt(
-				A2(
-					$justinmimbs$date$Date$daysInMonth,
-					y,
-					$justinmimbs$date$Date$numberToMonth(mn))) + ')')) + ((' for ' + $justinmimbs$date$Date$monthToName(
-				$justinmimbs$date$Date$numberToMonth(mn))) + ((((mn === 2) && (d === 29)) ? (' (' + ($elm$core$String$fromInt(y) + ' is not a leap year)')) : '') + ('; received (year ' + ($elm$core$String$fromInt(y) + (', month ' + ($elm$core$String$fromInt(mn) + (', day ' + ($elm$core$String$fromInt(d) + ')'))))))))))) : $elm$core$Result$Ok(
-			$justinmimbs$date$Date$RD(
-				($justinmimbs$date$Date$daysBeforeYear(y) + A2(
-					$justinmimbs$date$Date$daysBeforeMonth,
-					y,
-					$justinmimbs$date$Date$numberToMonth(mn))) + d)));
-	});
-var $justinmimbs$date$Date$fromOrdinalParts = F2(
-	function (y, od) {
-		var daysInYear = $justinmimbs$date$Date$isLeapYear(y) ? 366 : 365;
-		return (!A3($justinmimbs$date$Date$isBetweenInt, 1, daysInYear, od)) ? $elm$core$Result$Err(
-			'Invalid ordinal date: ' + (('ordinal-day ' + ($elm$core$String$fromInt(od) + ' is out of range')) + ((' (1 to ' + ($elm$core$String$fromInt(daysInYear) + ')')) + ((' for ' + $elm$core$String$fromInt(y)) + ('; received (year ' + ($elm$core$String$fromInt(y) + (', ordinal-day ' + ($elm$core$String$fromInt(od) + ')')))))))) : $elm$core$Result$Ok(
-			$justinmimbs$date$Date$RD(
-				$justinmimbs$date$Date$daysBeforeYear(y) + od));
-	});
-var $justinmimbs$date$Date$firstOfYear = function (y) {
-	return $justinmimbs$date$Date$RD(
-		$justinmimbs$date$Date$daysBeforeYear(y) + 1);
-};
-var $justinmimbs$date$Date$is53WeekYear = function (y) {
-	var wdnJan1 = $justinmimbs$date$Date$weekdayNumber(
-		$justinmimbs$date$Date$firstOfYear(y));
-	return (wdnJan1 === 4) || ((wdnJan1 === 3) && $justinmimbs$date$Date$isLeapYear(y));
-};
-var $justinmimbs$date$Date$fromWeekParts = F3(
-	function (wy, wn, wdn) {
-		var weeksInYear = $justinmimbs$date$Date$is53WeekYear(wy) ? 53 : 52;
-		return (!A3($justinmimbs$date$Date$isBetweenInt, 1, weeksInYear, wn)) ? $elm$core$Result$Err(
-			'Invalid week date: ' + (('week ' + ($elm$core$String$fromInt(wn) + ' is out of range')) + ((' (1 to ' + ($elm$core$String$fromInt(weeksInYear) + ')')) + ((' for ' + $elm$core$String$fromInt(wy)) + ('; received (year ' + ($elm$core$String$fromInt(wy) + (', week ' + ($elm$core$String$fromInt(wn) + (', weekday ' + ($elm$core$String$fromInt(wdn) + ')')))))))))) : ((!A3($justinmimbs$date$Date$isBetweenInt, 1, 7, wdn)) ? $elm$core$Result$Err(
-			'Invalid week date: ' + (('weekday ' + ($elm$core$String$fromInt(wdn) + ' is out of range')) + (' (1 to 7)' + ('; received (year ' + ($elm$core$String$fromInt(wy) + (', week ' + ($elm$core$String$fromInt(wn) + (', weekday ' + ($elm$core$String$fromInt(wdn) + ')'))))))))) : $elm$core$Result$Ok(
-			$justinmimbs$date$Date$RD(
-				($justinmimbs$date$Date$daysBeforeWeekYear(wy) + ((wn - 1) * 7)) + wdn)));
-	});
-var $justinmimbs$date$Date$fromYearAndDayOfYear = function (_v0) {
-	var y = _v0.a;
-	var doy = _v0.b;
-	switch (doy.$) {
-		case 'MonthAndDay':
-			var mn = doy.a;
-			var d = doy.b;
-			return A3($justinmimbs$date$Date$fromCalendarParts, y, mn, d);
-		case 'WeekAndWeekday':
-			var wn = doy.a;
-			var wdn = doy.b;
-			return A3($justinmimbs$date$Date$fromWeekParts, y, wn, wdn);
-		default:
-			var od = doy.a;
-			return A2($justinmimbs$date$Date$fromOrdinalParts, y, od);
-	}
-};
-var $justinmimbs$date$Date$int4 = A2(
-	$elm$parser$Parser$mapChompedString,
-	F2(
-		function (str, _v0) {
-			return A2(
-				$elm$core$Maybe$withDefault,
-				0,
-				$elm$core$String$toInt(str));
-		}),
-	A2(
-		$elm$parser$Parser$ignorer,
-		A2(
-			$elm$parser$Parser$ignorer,
-			A2(
-				$elm$parser$Parser$ignorer,
-				A2(
-					$elm$parser$Parser$ignorer,
-					A2(
-						$elm$parser$Parser$ignorer,
-						$elm$parser$Parser$succeed(_Utils_Tuple0),
-						$elm$parser$Parser$oneOf(
-							_List_fromArray(
-								[
-									$elm$parser$Parser$chompIf(
-									function (c) {
-										return _Utils_eq(
-											c,
-											_Utils_chr('-'));
-									}),
-									$elm$parser$Parser$succeed(_Utils_Tuple0)
-								]))),
-					$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
-				$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
-			$elm$parser$Parser$chompIf($elm$core$Char$isDigit)),
-		$elm$parser$Parser$chompIf($elm$core$Char$isDigit)));
-var $justinmimbs$date$Date$resultToParser = function (result) {
-	if (result.$ === 'Ok') {
-		var x = result.a;
-		return $elm$parser$Parser$succeed(x);
-	} else {
-		var message = result.a;
-		return $elm$parser$Parser$problem(message);
-	}
-};
-var $justinmimbs$date$Date$parser = A2(
-	$elm$parser$Parser$andThen,
-	A2($elm$core$Basics$composeR, $justinmimbs$date$Date$fromYearAndDayOfYear, $justinmimbs$date$Date$resultToParser),
-	A2(
-		$elm$parser$Parser$keeper,
-		A2(
-			$elm$parser$Parser$keeper,
-			$elm$parser$Parser$succeed($elm$core$Tuple$pair),
-			$justinmimbs$date$Date$int4),
-		$justinmimbs$date$Date$dayOfYear));
-var $justinmimbs$date$Date$fromIsoString = A2(
-	$elm$core$Basics$composeR,
-	$elm$parser$Parser$run(
-		A2(
-			$elm$parser$Parser$keeper,
-			$elm$parser$Parser$succeed($elm$core$Basics$identity),
-			A2(
-				$elm$parser$Parser$ignorer,
-				$justinmimbs$date$Date$parser,
-				A2(
-					$elm$parser$Parser$andThen,
-					$justinmimbs$date$Date$resultToParser,
-					$elm$parser$Parser$oneOf(
-						_List_fromArray(
-							[
-								A2($elm$parser$Parser$map, $elm$core$Result$Ok, $elm$parser$Parser$end),
-								A2(
-								$elm$parser$Parser$map,
-								$elm$core$Basics$always(
-									$elm$core$Result$Err('Expected a date only, not a date and time')),
-								$elm$parser$Parser$chompIf(
-									$elm$core$Basics$eq(
-										_Utils_chr('T')))),
-								$elm$parser$Parser$succeed(
-								$elm$core$Result$Err('Expected a date only'))
-							])))))),
-	$elm$core$Result$mapError(
-		A2(
-			$elm$core$Basics$composeR,
-			$elm$core$List$head,
-			A2(
-				$elm$core$Basics$composeR,
-				$elm$core$Maybe$map($justinmimbs$date$Date$deadEndToString),
-				$elm$core$Maybe$withDefault('')))));
 var $elm$core$Result$toMaybe = function (result) {
 	if (result.$ === 'Ok') {
 		var v = result.a;
@@ -8913,15 +10013,6 @@ var $author$project$Parse$Heuristic$parseDateRange = F2(
 								A2($author$project$Parse$Heuristic$parseDayFirstRange, today, text)
 							])))));
 	});
-var $elm$core$List$member = F2(
-	function (x, xs) {
-		return A2(
-			$elm$core$List$any,
-			function (a) {
-				return _Utils_eq(a, x);
-			},
-			xs);
-	});
 var $author$project$Parse$Heuristic$distinct = A2(
 	$elm$core$List$foldr,
 	F2(
@@ -8929,8 +10020,6 @@ var $author$project$Parse$Heuristic$distinct = A2(
 			return A2($elm$core$List$member, x, acc) ? acc : A2($elm$core$List$cons, x, acc);
 		}),
 	_List_Nil);
-var $elm$core$List$sortBy = _List_sortBy;
-var $elm$core$String$toLower = _String_toLower;
 var $author$project$Parse$Heuristic$parseDestination = F2(
 	function (catalog, text) {
 		return $elm$core$List$head(
@@ -9027,7 +10116,6 @@ var $author$project$Parse$Heuristic$parseTags = function (text) {
 	return $author$project$Parse$Heuristic$dedupTags(
 		_Utils_ap(explicit, implicitPet));
 };
-var $elm$core$String$trim = _String_trim;
 var $author$project$Parse$Heuristic$parse = F3(
 	function (today, catalog, input) {
 		var text = $elm$core$String$toLower(
@@ -9046,29 +10134,186 @@ var $author$project$Parse$Heuristic$parse = F3(
 			tags: $author$project$Parse$Heuristic$parseTags(text)
 		};
 	});
-var $author$project$Main$applyPrompt = F2(
+var $author$project$Main$handlePromptChange = F2(
 	function (raw, model) {
 		var modelWithPrompt = _Utils_update(
 			model,
 			{prompt: raw});
+		var heuristicResult = A2(
+			$elm$core$Maybe$map,
+			function (_v0) {
+				var today = _v0.a;
+				var catalog = _v0.b;
+				return A3($author$project$Parse$Heuristic$parse, today, catalog, raw);
+			},
+			A3(
+				$elm$core$Maybe$map2,
+				$elm$core$Tuple$pair,
+				model.today,
+				$author$project$Main$catalogValue(model.catalog)));
 		return A2(
 			$elm$core$Maybe$withDefault,
-			modelWithPrompt,
+			_Utils_Tuple2(modelWithPrompt, $elm$core$Platform$Cmd$none),
 			A2(
 				$elm$core$Maybe$map,
-				$author$project$Main$applyPartial(modelWithPrompt),
-				A2(
-					$elm$core$Maybe$map,
-					function (_v0) {
-						var today = _v0.a;
-						var catalog = _v0.b;
-						return A3($author$project$Parse$Heuristic$parse, today, catalog, raw);
-					},
-					A3(
-						$elm$core$Maybe$map2,
-						$elm$core$Tuple$pair,
-						model.today,
-						$author$project$Main$catalogValue(model.catalog)))));
+				function (partial) {
+					return A3($author$project$Main$applyHeuristicAndDispatch, raw, partial, modelWithPrompt);
+				},
+				heuristicResult));
+	});
+var $author$project$Parse$Pipeline$decodeSlmResult = function (value) {
+	return A2(
+		$elm$core$Result$mapError,
+		$elm$json$Json$Decode$errorToString,
+		A2($elm$json$Json$Decode$decodeValue, $author$project$Parse$Pipeline$partialDecoder, value));
+};
+var $author$project$Parse$Pipeline$orElse = F2(
+	function (m, fallback) {
+		if (m.$ === 'Just') {
+			return m;
+		} else {
+			return fallback;
+		}
+	});
+var $author$project$Parse$Pipeline$uniqueTags = A2(
+	$elm$core$List$foldr,
+	F2(
+		function (t, acc) {
+			return A2($elm$core$List$member, t, acc) ? acc : A2($elm$core$List$cons, t, acc);
+		}),
+	_List_Nil);
+var $author$project$Parse$Pipeline$mergePartials = F2(
+	function (heuristic, slm) {
+		return {
+			adults: A2($author$project$Parse$Pipeline$orElse, slm.adults, heuristic.adults),
+			checkIn: A2($author$project$Parse$Pipeline$orElse, slm.checkIn, heuristic.checkIn),
+			checkOut: A2($author$project$Parse$Pipeline$orElse, slm.checkOut, heuristic.checkOut),
+			children: A2($author$project$Parse$Pipeline$orElse, slm.children, heuristic.children),
+			destination: A2($author$project$Parse$Pipeline$orElse, slm.destination, heuristic.destination),
+			infants: A2($author$project$Parse$Pipeline$orElse, slm.infants, heuristic.infants),
+			pets: A2($author$project$Parse$Pipeline$orElse, slm.pets, heuristic.pets),
+			tags: $author$project$Parse$Pipeline$uniqueTags(
+				_Utils_ap(heuristic.tags, slm.tags))
+		};
+	});
+var $author$project$Main$handleSlmJson = F2(
+	function (result, model) {
+		if (result.$ === 'Err') {
+			var err = result.a;
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{
+						slmLastError: $elm$core$Maybe$Just(err),
+						slmRequestId: $elm$core$Maybe$Nothing
+					}),
+				$elm$core$Platform$Cmd$none);
+		} else {
+			var value = result.a;
+			var _v1 = $author$project$Parse$Pipeline$decodeSlmResult(value);
+			if (_v1.$ === 'Err') {
+				var err = _v1.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							slmLastError: $elm$core$Maybe$Just(err),
+							slmRequestId: $elm$core$Maybe$Nothing
+						}),
+					$elm$core$Platform$Cmd$none);
+			} else {
+				var slmPartial = _v1.a;
+				var heuristic = A2($elm$core$Maybe$withDefault, slmPartial, model.heuristicPartial);
+				var merged = A2($author$project$Parse$Pipeline$mergePartials, heuristic, slmPartial);
+				var slmAddedDates = ((!$author$project$Main$isJust(heuristic.checkIn)) && $author$project$Main$isJust(slmPartial.checkIn)) || ((!$author$project$Main$isJust(heuristic.checkOut)) && $author$project$Main$isJust(slmPartial.checkOut));
+				var cleared = _Utils_update(
+					model,
+					{
+						mergedPartial: $elm$core$Maybe$Just(merged),
+						slmLastError: $elm$core$Maybe$Nothing,
+						slmRequestId: $elm$core$Maybe$Nothing
+					});
+				var applied = A2($author$project$Main$applyPartial, cleared, merged);
+				return _Utils_Tuple2(
+					_Utils_update(
+						applied,
+						{datesFromSlm: slmAddedDates || applied.datesFromSlm}),
+					$elm$core$Platform$Cmd$none);
+			}
+		}
+	});
+var $author$project$Main$handleSlmResponse = F2(
+	function (result, model) {
+		if (result.$ === 'Err') {
+			var err = result.a;
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{
+						slmLastError: $elm$core$Maybe$Just(err),
+						slmRequestId: $elm$core$Maybe$Nothing
+					}),
+				$elm$core$Platform$Cmd$none);
+		} else {
+			var response = result.a;
+			return (!_Utils_eq(
+				$elm$core$Maybe$Just(response.id),
+				model.slmRequestId)) ? _Utils_Tuple2(model, $elm$core$Platform$Cmd$none) : A2($author$project$Main$handleSlmJson, response.result, model);
+		}
+	});
+var $author$project$Main$SlmFailed = function (a) {
+	return {$: 'SlmFailed', a: a};
+};
+var $author$project$Main$SlmReady = {$: 'SlmReady'};
+var $author$project$Main$handleSlmStatus = F2(
+	function (result, model) {
+		if (result.$ === 'Err') {
+			var err = result.a;
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{
+						slmState: $author$project$Main$SlmFailed(err)
+					}),
+				$elm$core$Platform$Cmd$none);
+		} else {
+			switch (result.a.$) {
+				case 'Loading':
+					var p = result.a.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								slmState: $author$project$Main$SlmLoading(p)
+							}),
+						$elm$core$Platform$Cmd$none);
+				case 'Ready':
+					var _v1 = result.a;
+					var readyModel = _Utils_update(
+						model,
+						{slmState: $author$project$Main$SlmReady});
+					return A2(
+						$elm$core$Maybe$withDefault,
+						_Utils_Tuple2(readyModel, $elm$core$Platform$Cmd$none),
+						A2(
+							$elm$core$Maybe$map,
+							function (_v2) {
+								var prompt = _v2.a;
+								var partial = _v2.b;
+								return A3($author$project$Main$dispatchToSlm, prompt, partial, readyModel);
+							},
+							A3($elm$core$Maybe$map2, $elm$core$Tuple$pair, readyModel.pendingPrompt, readyModel.heuristicPartial)));
+				default:
+					var msg = result.a.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								slmState: $author$project$Main$SlmFailed(msg)
+							}),
+						$elm$core$Platform$Cmd$none);
+			}
+		}
 	});
 var $author$project$Main$httpErrorToString = function (err) {
 	switch (err.$) {
@@ -9087,17 +10332,139 @@ var $author$project$Main$httpErrorToString = function (err) {
 			return 'bad body: ' + s;
 	}
 };
-var $author$project$Domain$Listing$idFromString = $author$project$Domain$Listing$ListingId;
-var $author$project$Main$nonEmpty = function (s) {
-	return $elm$core$String$isEmpty(s) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(s);
-};
-var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Main$parseIntOr = F2(
 	function (fallback, raw) {
 		return A2(
 			$elm$core$Maybe$withDefault,
 			fallback,
 			$elm$core$String$toInt(raw));
+	});
+var $justinmimbs$date$Date$Days = {$: 'Days'};
+var $justinmimbs$date$Date$Months = {$: 'Months'};
+var $justinmimbs$date$Date$add = F3(
+	function (unit, n, _v0) {
+		var rd = _v0.a;
+		switch (unit.$) {
+			case 'Years':
+				return A3(
+					$justinmimbs$date$Date$add,
+					$justinmimbs$date$Date$Months,
+					12 * n,
+					$justinmimbs$date$Date$RD(rd));
+			case 'Months':
+				var date = $justinmimbs$date$Date$toCalendarDate(
+					$justinmimbs$date$Date$RD(rd));
+				var wholeMonths = ((12 * (date.year - 1)) + ($justinmimbs$date$Date$monthToNumber(date.month) - 1)) + n;
+				var m = $justinmimbs$date$Date$numberToMonth(
+					A2($elm$core$Basics$modBy, 12, wholeMonths) + 1);
+				var y = A2($justinmimbs$date$Date$floorDiv, wholeMonths, 12) + 1;
+				return $justinmimbs$date$Date$RD(
+					($justinmimbs$date$Date$daysBeforeYear(y) + A2($justinmimbs$date$Date$daysBeforeMonth, y, m)) + A2(
+						$elm$core$Basics$min,
+						date.day,
+						A2($justinmimbs$date$Date$daysInMonth, y, m)));
+			case 'Weeks':
+				return $justinmimbs$date$Date$RD(rd + (7 * n));
+			default:
+				return $justinmimbs$date$Date$RD(rd + n);
+		}
+	});
+var $author$project$Main$shiftIso = F2(
+	function (delta, raw) {
+		return A2(
+			$elm$core$Maybe$withDefault,
+			raw,
+			A2(
+				$elm$core$Maybe$map,
+				A2(
+					$elm$core$Basics$composeR,
+					A2($justinmimbs$date$Date$add, $justinmimbs$date$Date$Days, delta),
+					$justinmimbs$date$Date$toIsoString),
+				$elm$core$Result$toMaybe(
+					$justinmimbs$date$Date$fromIsoString(raw))));
+	});
+var $author$project$Main$shiftDates = F2(
+	function (delta, model) {
+		return _Utils_update(
+			model,
+			{
+				checkIn: A2($author$project$Main$shiftIso, delta, model.checkIn),
+				checkOut: A2($author$project$Main$shiftIso, delta, model.checkOut)
+			});
+	});
+var $author$project$Main$assignIds = F2(
+	function (start, items) {
+		var step = F2(
+			function (item, _v1) {
+				var c = _v1.a;
+				var acc = _v1.b;
+				return _Utils_Tuple2(
+					c + 1,
+					A2(
+						$elm$core$List$cons,
+						_Utils_Tuple2(c + 1, item),
+						acc));
+			});
+		var _v0 = A3(
+			$elm$core$List$foldl,
+			step,
+			_Utils_Tuple2(start, _List_Nil),
+			items);
+		var finalCounter = _v0.a;
+		var reversed = _v0.b;
+		return _Utils_Tuple2(
+			finalCounter,
+			$elm$core$List$reverse(reversed));
+	});
+var $elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		$elm$core$List$foldl,
+		F2(
+			function (_v0, dict) {
+				var key = _v0.a;
+				var value = _v0.b;
+				return A3($elm$core$Dict$insert, key, value, dict);
+			}),
+		$elm$core$Dict$empty,
+		assocs);
+};
+var $author$project$Main$startCorpusBuild = F4(
+	function (items, toText, setCorpus, model) {
+		if (!items.b) {
+			return _Utils_Tuple2(
+				A2(
+					setCorpus,
+					$author$project$Main$CorpusReady(
+						$author$project$Rag$Index$build(_List_Nil)),
+					model),
+				$elm$core$Platform$Cmd$none);
+		} else {
+			var _v1 = A2($author$project$Main$assignIds, model.embedCounter, items);
+			var nextCounter = _v1.a;
+			var idItems = _v1.b;
+			var cmds = A2(
+				$elm$core$List$map,
+				function (_v2) {
+					var id = _v2.a;
+					var item = _v2.b;
+					return $author$project$Embedding$MiniLm$embed(
+						{
+							id: id,
+							text: toText(item)
+						});
+				},
+				idItems);
+			var pending = $elm$core$Dict$fromList(idItems);
+			return _Utils_Tuple2(
+				A2(
+					setCorpus,
+					$author$project$Main$CorpusBuilding(
+						{pending: pending, vectors: _List_Nil}),
+					_Utils_update(
+						model,
+						{embedCounter: nextCounter})),
+				$elm$core$Platform$Cmd$batch(cmds));
+		}
 	});
 var $author$project$Main$update = F2(
 	function (msg, model) {
@@ -9132,21 +10499,57 @@ var $author$project$Main$update = F2(
 							today: $elm$core$Maybe$Just(today)
 						}),
 					$elm$core$Platform$Cmd$none);
+			case 'GotExemplars':
+				if (msg.a.$ === 'Ok') {
+					var xs = msg.a.a;
+					return A4(
+						$author$project$Main$startCorpusBuild,
+						xs,
+						function ($) {
+							return $.prompt;
+						},
+						$author$project$Main$setExemplarCorpus,
+						_Utils_update(
+							model,
+							{exemplars: xs}));
+				} else {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				}
+			case 'GotOntology':
+				if (msg.a.$ === 'Ok') {
+					var xs = msg.a.a;
+					return A4(
+						$author$project$Main$startCorpusBuild,
+						xs,
+						function ($) {
+							return $.text;
+						},
+						$author$project$Main$setOntologyCorpus,
+						_Utils_update(
+							model,
+							{ontology: xs}));
+				} else {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				}
+			case 'GotSlmStatus':
+				var result = msg.a;
+				return A2($author$project$Main$handleSlmStatus, result, model);
+			case 'GotSlmResponse':
+				var result = msg.a;
+				return A2($author$project$Main$handleSlmResponse, result, model);
+			case 'GotEmbedResponse':
+				var result = msg.a;
+				return A2($author$project$Main$handleEmbedResponse, result, model);
 			case 'ChangedPrompt':
 				var raw = msg.a;
-				return _Utils_Tuple2(
-					A2($author$project$Main$applyPrompt, raw, model),
-					$elm$core$Platform$Cmd$none);
+				return A2($author$project$Main$handlePromptChange, raw, model);
 			case 'SelectedListing':
-				var raw = msg.a;
+				var id = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{
-							selectedListing: A2(
-								$elm$core$Maybe$map,
-								$author$project$Domain$Listing$idFromString,
-								$author$project$Main$nonEmpty(raw))
+							selectedListing: $elm$core$Maybe$Just(id)
 						}),
 					$elm$core$Platform$Cmd$none);
 			case 'ChangedCheckIn':
@@ -9154,14 +10557,14 @@ var $author$project$Main$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{checkIn: raw}),
+						{checkIn: raw, datesFromSlm: false}),
 					$elm$core$Platform$Cmd$none);
 			case 'ChangedCheckOut':
 				var raw = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{checkOut: raw}),
+						{checkOut: raw, datesFromSlm: false}),
 					$elm$core$Platform$Cmd$none);
 			case 'ChangedAdults':
 				var raw = msg.a;
@@ -9190,7 +10593,7 @@ var $author$project$Main$update = F2(
 							infants: A2($author$project$Main$parseIntOr, model.infants, raw)
 						}),
 					$elm$core$Platform$Cmd$none);
-			default:
+			case 'ChangedPets':
 				var raw = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -9199,9 +10602,13 @@ var $author$project$Main$update = F2(
 							pets: A2($author$project$Main$parseIntOr, model.pets, raw)
 						}),
 					$elm$core$Platform$Cmd$none);
+			default:
+				var delta = msg.a;
+				return _Utils_Tuple2(
+					A2($author$project$Main$shiftDates, delta, model),
+					$elm$core$Platform$Cmd$none);
 		}
 	});
-var $elm$json$Json$Encode$string = _Json_wrap;
 var $elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -9233,9 +10640,6 @@ var $author$project$Main$ChangedInfants = function (a) {
 };
 var $author$project$Main$ChangedPets = function (a) {
 	return {$: 'ChangedPets', a: a};
-};
-var $author$project$Main$SelectedListing = function (a) {
-	return {$: 'SelectedListing', a: a};
 };
 var $elm$core$Result$andThen = F2(
 	function (callback, result) {
@@ -9469,8 +10873,6 @@ var $author$project$Main$numberInput = F3(
 					_List_Nil)
 				]));
 	});
-var $elm$html$Html$option = _VirtualDom_node('option');
-var $elm$html$Html$select = _VirtualDom_node('select');
 var $elm$html$Html$a = _VirtualDom_node('a');
 var $elm$url$Url$Builder$toQueryPair = function (_v0) {
 	var key = _v0.a;
@@ -9617,8 +11019,8 @@ var $author$project$Main$viewBookButton = function (intentResult) {
 				]));
 	}
 };
-var $author$project$Main$ChangedPrompt = function (a) {
-	return {$: 'ChangedPrompt', a: a};
+var $author$project$Main$ShiftDates = function (a) {
+	return {$: 'ShiftDates', a: a};
 };
 var $elm$html$Html$button = _VirtualDom_node('button');
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
@@ -9637,6 +11039,58 @@ var $elm$html$Html$Events$onClick = function (msg) {
 		'click',
 		$elm$json$Json$Decode$succeed(msg));
 };
+var $elm$html$Html$span = _VirtualDom_node('span');
+var $author$project$Main$viewDateShift = function (model) {
+	var canShift = (!$elm$core$String$isEmpty(model.checkIn)) && (!$elm$core$String$isEmpty(model.checkOut));
+	return canShift ? A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('date-shift')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$button,
+				_List_fromArray(
+					[
+						$elm$html$Html$Events$onClick(
+						$author$project$Main$ShiftDates(-7)),
+						$elm$html$Html$Attributes$type_('button'),
+						$elm$html$Html$Attributes$class('example')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('« 1 wk')
+					])),
+				A2(
+				$elm$html$Html$button,
+				_List_fromArray(
+					[
+						$elm$html$Html$Events$onClick(
+						$author$project$Main$ShiftDates(7)),
+						$elm$html$Html$Attributes$type_('button'),
+						$elm$html$Html$Attributes$class('example')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('1 wk »')
+					])),
+				model.datesFromSlm ? A2(
+				$elm$html$Html$span,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('tentative-hint')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Dates suggested from prompt; if booked, shift to try a different week.')
+					])) : $elm$html$Html$text('')
+			])) : $elm$html$Html$text('');
+};
+var $author$project$Main$ChangedPrompt = function (a) {
+	return {$: 'ChangedPrompt', a: a};
+};
 var $author$project$Main$exampleButton = function (prompt) {
 	return A2(
 		$elm$html$Html$button,
@@ -9653,8 +11107,7 @@ var $author$project$Main$exampleButton = function (prompt) {
 			]));
 };
 var $author$project$Main$examplePrompts = _List_fromArray(
-	['2 adults May 5-9 in Tulum, dog-friendly', 'Lisbon June 1-8 for two', 'Barcelona June 15-22 for 2 adults and 2 children', 'Kyoto Aug 10-15 just me, quiet workspace', 'Chamonix Dec 20-28 with my dog', 'couple to Tulum 2026-06-01 to 2026-06-08', 'Tulum beachfront, two of us, Jul 10-15', 'Lisbon city center for two, Sep 5-12', 'Kyoto October 1-7, workspace needed', 'solo to Barcelona May 1-7, pool']);
-var $elm$html$Html$span = _VirtualDom_node('span');
+	['2 adults May 5-9 in Tulum, dog-friendly', 'long weekend in Lisbon for two in October', 'BCN early June, family of 4', 'Christmas week in Chamonix with my dog', 'weekend trip Kyoto, just me, workspace needed', 'couple Easter Tulum', 'barca for two, mid-September, 5 nights', 'beach trip late August Tulum, dog OK']);
 var $author$project$Main$viewExamplesRow = A2(
 	$elm$html$Html$div,
 	_List_fromArray(
@@ -9674,18 +11127,46 @@ var $author$project$Main$viewExamplesRow = A2(
 					$elm$html$Html$text('Try: ')
 				])),
 		A2($elm$core$List$map, $author$project$Main$exampleButton, $author$project$Main$examplePrompts)));
-var $elm$json$Json$Encode$bool = _Json_wrap;
-var $elm$html$Html$Attributes$boolProperty = F2(
-	function (key, bool) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			$elm$json$Json$Encode$bool(bool));
-	});
-var $elm$html$Html$Attributes$selected = $elm$html$Html$Attributes$boolProperty('selected');
-var $author$project$Main$viewListingOption = F2(
+var $elm$core$List$isEmpty = function (xs) {
+	if (!xs.b) {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $author$project$Main$maxCards = 5;
+var $author$project$Main$SelectedListing = function (a) {
+	return {$: 'SelectedListing', a: a};
+};
+var $elm$html$Html$Attributes$classList = function (classes) {
+	return $elm$html$Html$Attributes$class(
+		A2(
+			$elm$core$String$join,
+			' ',
+			A2(
+				$elm$core$List$map,
+				$elm$core$Tuple$first,
+				A2($elm$core$List$filter, $elm$core$Tuple$second, classes))));
+};
+var $elm$html$Html$h3 = _VirtualDom_node('h3');
+var $author$project$Main$petsLabel = function (allowed) {
+	return allowed ? ' - pets ok' : '';
+};
+var $author$project$Main$viewTagChip = function (t) {
+	return A2(
+		$elm$html$Html$span,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('tag-chip')
+			]),
+		_List_fromArray(
+			[
+				$elm$html$Html$text(
+				$author$project$Domain$Listing$tagToString(t))
+			]));
+};
+var $author$project$Main$viewResultCard = F2(
 	function (maybeSelected, listing) {
-		var idStr = $author$project$Domain$Listing$idToString(listing.id);
 		var isSelected = A2(
 			$elm$core$Maybe$withDefault,
 			false,
@@ -9694,19 +11175,109 @@ var $author$project$Main$viewListingOption = F2(
 				function (sid) {
 					return _Utils_eq(
 						$author$project$Domain$Listing$idToString(sid),
-						idStr);
+						$author$project$Domain$Listing$idToString(listing.id));
 				},
 				maybeSelected));
 		return A2(
-			$elm$html$Html$option,
+			$elm$html$Html$button,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$value(idStr),
-					$elm$html$Html$Attributes$selected(isSelected)
+					$elm$html$Html$Attributes$classList(
+					_List_fromArray(
+						[
+							_Utils_Tuple2('listing-card', true),
+							_Utils_Tuple2('selected', isSelected)
+						])),
+					$elm$html$Html$Attributes$type_('button'),
+					$elm$html$Html$Events$onClick(
+					$author$project$Main$SelectedListing(listing.id))
 				]),
 			_List_fromArray(
 				[
-					$elm$html$Html$text(listing.title + (' - ' + (listing.city + (', ' + listing.country))))
+					A2(
+					$elm$html$Html$h3,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('card-title')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(listing.title)
+						])),
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('card-meta')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(listing.city + (', ' + listing.country))
+						])),
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('card-meta')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(
+							'Sleeps ' + ($elm$core$String$fromInt(listing.maxGuests) + $author$project$Main$petsLabel(listing.petsAllowed)))
+						])),
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('card-tags')
+						]),
+					A2($elm$core$List$map, $author$project$Main$viewTagChip, listing.tags))
+				]));
+	});
+var $author$project$Main$viewListingCards = F2(
+	function (catalog, model) {
+		var filters = A2($elm$core$Maybe$map, $author$project$Main$filtersFromPartial, model.mergedPartial);
+		var ranked = A2(
+			$elm$core$Maybe$withDefault,
+			$author$project$Domain$Catalog$all(catalog),
+			A2(
+				$elm$core$Maybe$map,
+				function (f) {
+					return A2($author$project$Domain$Catalog$matchAgainst, f, catalog);
+				},
+				filters));
+		var toShow = $elm$core$List$isEmpty(ranked) ? $author$project$Domain$Catalog$all(catalog) : ranked;
+		var showingFallback = $author$project$Main$isJust(filters) && $elm$core$List$isEmpty(ranked);
+		var notice = showingFallback ? A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('no-match-notice')
+				]),
+			_List_fromArray(
+				[
+					$elm$html$Html$text('No catalog listing matches all the constraints in your prompt; showing the full catalog instead.')
+				])) : $elm$html$Html$text('');
+		var cards = A2($elm$core$List$take, $author$project$Main$maxCards, toShow);
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('listing-section')
+				]),
+			_List_fromArray(
+				[
+					notice,
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('listing-cards')
+						]),
+					A2(
+						$elm$core$List$map,
+						$author$project$Main$viewResultCard(model.selectedListing),
+						cards))
 				]));
 	});
 var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
@@ -9728,7 +11299,7 @@ var $author$project$Main$viewPromptArea = function (model) {
 				$elm$html$Html$textarea,
 				_List_fromArray(
 					[
-						$elm$html$Html$Attributes$placeholder('e.g. \"2 adults May 5-9 in Tulum, dog-friendly\"'),
+						$elm$html$Html$Attributes$placeholder('e.g. \"long weekend in Lisbon for two in October\"'),
 						$elm$html$Html$Attributes$value(model.prompt),
 						$elm$html$Html$Events$onInput($author$project$Main$ChangedPrompt),
 						$elm$html$Html$Attributes$rows(3),
@@ -9745,7 +11316,6 @@ var $author$project$Main$viewForm = F3(
 				return A2($author$project$Domain$Catalog$findById, id, catalog);
 			},
 			model.selectedListing);
-		var listings = $author$project$Domain$Catalog$all(catalog);
 		var intentResult = A3($author$project$Main$buildIntent, today, model, selectedListing);
 		return A2(
 			$elm$html$Html$div,
@@ -9762,36 +11332,15 @@ var $author$project$Main$viewForm = F3(
 					_List_Nil,
 					_List_fromArray(
 						[
-							$elm$html$Html$text('Form')
+							$elm$html$Html$text('Listings')
 						])),
+					A2($author$project$Main$viewListingCards, catalog, model),
 					A2(
-					$elm$html$Html$label,
+					$elm$html$Html$h2,
 					_List_Nil,
 					_List_fromArray(
 						[
-							$elm$html$Html$text('Listing'),
-							A2(
-							$elm$html$Html$select,
-							_List_fromArray(
-								[
-									$elm$html$Html$Events$onInput($author$project$Main$SelectedListing)
-								]),
-							A2(
-								$elm$core$List$cons,
-								A2(
-									$elm$html$Html$option,
-									_List_fromArray(
-										[
-											$elm$html$Html$Attributes$value('')
-										]),
-									_List_fromArray(
-										[
-											$elm$html$Html$text('Choose a property...')
-										])),
-								A2(
-									$elm$core$List$map,
-									$author$project$Main$viewListingOption(model.selectedListing),
-									listings)))
+							$elm$html$Html$text('Stay')
 						])),
 					A2(
 					$elm$html$Html$label,
@@ -9825,6 +11374,7 @@ var $author$project$Main$viewForm = F3(
 								]),
 							_List_Nil)
 						])),
+					$author$project$Main$viewDateShift(model),
 					A3($author$project$Main$numberInput, 'Adults', model.adults, $author$project$Main$ChangedAdults),
 					A3($author$project$Main$numberInput, 'Children', model.children, $author$project$Main$ChangedChildren),
 					A3($author$project$Main$numberInput, 'Infants', model.infants, $author$project$Main$ChangedInfants),
@@ -9876,6 +11426,88 @@ var $author$project$Main$viewBody = function (model) {
 			$author$project$Main$viewWithToday(model),
 			model.today));
 };
+var $elm$core$Basics$round = _Basics_round;
+var $author$project$Main$progressText = function (p) {
+	return $elm$core$String$fromInt(
+		$elm$core$Basics$round(p.progress * 100)) + '%';
+};
+var $author$project$Main$viewSlmBanner = function (model) {
+	var _v0 = model.slmState;
+	switch (_v0.$) {
+		case 'SlmIdle':
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('slm-banner slm-idle')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Heuristic-only mode. The 350MB on-device model loads only when a prompt needs it.')
+					]));
+		case 'SlmLoading':
+			var p = _v0.a;
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('slm-banner slm-loading')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(
+						'Loading on-device model... ' + ($author$project$Main$progressText(p) + ('. ' + p.text)))
+					]));
+		case 'SlmReady':
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('slm-banner slm-ready')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('On-device model ready. Prompts run locally; no data leaves your machine.')
+					]));
+		default:
+			var reason = _v0.a;
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('slm-banner slm-error')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('On-device model unavailable (' + (reason + '). Falling back to heuristic-only mode.'))
+					]));
+	}
+};
+var $author$project$Main$truncate = F2(
+	function (n, s) {
+		return (_Utils_cmp(
+			$elm$core$String$length(s),
+			n) < 1) ? s : (A2($elm$core$String$left, n, s) + '...');
+	});
+var $author$project$Main$viewSlmError = function (model) {
+	var _v0 = model.slmLastError;
+	if (_v0.$ === 'Just') {
+		var err = _v0.a;
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('slm-error-notice')
+				]),
+			_List_fromArray(
+				[
+					$elm$html$Html$text(
+					'Last on-device parse failed: ' + (A2($author$project$Main$truncate, 140, err) + '. Form shows heuristic-only result.'))
+				]));
+	} else {
+		return $elm$html$Html$text('');
+	}
+};
 var $author$project$Main$view = function (model) {
 	return A2(
 		$elm$html$Html$div,
@@ -9897,7 +11529,7 @@ var $author$project$Main$view = function (model) {
 				_List_Nil,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Type a prompt to auto-fill the form, or use the form directly. '),
+						$elm$html$Html$text('Type a prompt to auto-fill the form and rank matching listings, or use the form directly. '),
 						$elm$html$Html$text('Click '),
 						A2(
 						$elm$html$Html$code,
@@ -9908,17 +11540,12 @@ var $author$project$Main$view = function (model) {
 							])),
 						$elm$html$Html$text(' to land on the listing\'s reservation page.')
 					])),
+				$author$project$Main$viewSlmBanner(model),
+				$author$project$Main$viewSlmError(model),
 				$author$project$Main$viewBody(model)
 			]));
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
-	{
-		init: $author$project$Main$init,
-		subscriptions: function (_v0) {
-			return $elm$core$Platform$Sub$none;
-		},
-		update: $author$project$Main$update,
-		view: $author$project$Main$view
-	});
+	{init: $author$project$Main$init, subscriptions: $author$project$Main$subscriptions, update: $author$project$Main$update, view: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main(
 	$elm$json$Json$Decode$succeed(_Utils_Tuple0))(0)}});}(this));

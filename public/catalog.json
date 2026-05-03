@@ -1,9 +1,8 @@
 {
-    "_note": "Phase 0 placeholder catalog. Replace each id with a real Airbnb numeric listing id (the digits in the /rooms/{id} URL) before testing the deep link end-to-end.",
     "listings": [
         {
-            "id": "REPLACE_ME_LISBON",
-            "title": "Sunny one-bedroom near the harbor",
+            "id": "364652",
+            "title": "Cozy walking-distance flat",
             "city": "Lisbon",
             "country": "Portugal",
             "maxGuests": 2,
@@ -12,27 +11,87 @@
             "thumbnailUrl": ""
         },
         {
+            "id": "1103297",
+            "title": "The heart of Lisbon, with a lift",
+            "city": "Lisbon",
+            "country": "Portugal",
+            "maxGuests": 4,
+            "petsAllowed": false,
+            "tags": ["wifi", "city-center", "workspace"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "22900854",
+            "title": "Lisbon city-center 3-bedroom",
+            "city": "Lisbon",
+            "country": "Portugal",
+            "maxGuests": 6,
+            "petsAllowed": false,
+            "tags": ["wifi", "quiet"],
+            "thumbnailUrl": ""
+        },
+        {
             "id": "22295849",
-            "title": "Beachfront casita with hammock (stub metadata, real id)",
+            "title": "Beachfront casita with hammock",
             "city": "Tulum",
             "country": "Mexico",
-            "maxGuests": 8,
+            "maxGuests": 4,
             "petsAllowed": true,
             "tags": ["beachfront", "pet-friendly", "wifi"],
             "thumbnailUrl": ""
         },
         {
-            "id": "REPLACE_ME_KYOTO",
-            "title": "Quiet machiya in Higashiyama",
+            "id": "5734211",
+            "title": "Boho-Luxe 3BR beachfront paradise",
+            "city": "Tulum",
+            "country": "Mexico",
+            "maxGuests": 6,
+            "petsAllowed": false,
+            "tags": ["beachfront", "pool", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "27403853",
+            "title": "Beachfront bungalow, Bahia Soliman",
+            "city": "Tulum",
+            "country": "Mexico",
+            "maxGuests": 2,
+            "petsAllowed": false,
+            "tags": ["beachfront", "quiet", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "432757",
+            "title": "Modern machiya in central Kyoto",
             "city": "Kyoto",
             "country": "Japan",
             "maxGuests": 3,
             "petsAllowed": false,
-            "tags": ["quiet", "wifi", "workspace"],
+            "tags": ["city-center", "wifi", "workspace"],
             "thumbnailUrl": ""
         },
         {
-            "id": "REPLACE_ME_CHAMONIX",
+            "id": "18676765",
+            "title": "Marutake-An machiya by Nijo Castle",
+            "city": "Kyoto",
+            "country": "Japan",
+            "maxGuests": 4,
+            "petsAllowed": false,
+            "tags": ["quiet", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "21142487",
+            "title": "Restored 120-year machiya near Nijo",
+            "city": "Kyoto",
+            "country": "Japan",
+            "maxGuests": 4,
+            "petsAllowed": false,
+            "tags": ["quiet", "workspace", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "30946765",
             "title": "Mountain chalet with valley views",
             "city": "Chamonix",
             "country": "France",
@@ -42,7 +101,27 @@
             "thumbnailUrl": ""
         },
         {
-            "id": "REPLACE_ME_BARCELONA",
+            "id": "34435818",
+            "title": "Luxury chalet, sleeps 12, spa & sauna",
+            "city": "Chamonix",
+            "country": "France",
+            "maxGuests": 12,
+            "petsAllowed": false,
+            "tags": ["mountain", "pool", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "16138100",
+            "title": "Small chalet/mazot for two",
+            "city": "Chamonix",
+            "country": "France",
+            "maxGuests": 2,
+            "petsAllowed": false,
+            "tags": ["mountain", "quiet", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "39045025",
             "title": "Modern flat in El Born with rooftop pool",
             "city": "Barcelona",
             "country": "Spain",
@@ -52,13 +131,23 @@
             "thumbnailUrl": ""
         },
         {
-            "id": "22295849",
-            "title": "Test listing (real id, used to verify URL builder)",
-            "city": "(varies)",
-            "country": "",
-            "maxGuests": 16,
-            "petsAllowed": true,
-            "tags": [],
+            "id": "31479950",
+            "title": "Stylish gothic apartment in El Born",
+            "city": "Barcelona",
+            "country": "Spain",
+            "maxGuests": 3,
+            "petsAllowed": false,
+            "tags": ["city-center", "wifi"],
+            "thumbnailUrl": ""
+        },
+        {
+            "id": "26015555",
+            "title": "El Born long-term workspace flat",
+            "city": "Barcelona",
+            "country": "Spain",
+            "maxGuests": 4,
+            "petsAllowed": false,
+            "tags": ["city-center", "workspace", "wifi"],
             "thumbnailUrl": ""
         }
     ]
