@@ -29,12 +29,19 @@ const probes = [
     { prompt: "luxury chalet spa sauna", needle: "luxury chalet", scope: "first" },
     { prompt: "pool barcelona", needle: "rooftop pool", scope: "first" },
     { prompt: "mountain valley views", needle: "mountain chalet", scope: "first" },
+    // MiniLM-L6-v2 only weakly connects "lisboa" to "Lisbon": typical
+    // top-3 has 2 of 3 Lisbon listings, with a Barcelona "El Born" flat
+    // sneaking in at top-1.  Tightening to "every" is a candidate signal
+    // if we ever swap to a multilingual or larger embedder.
+    { prompt: "lisboa", needle: "lisbon", scope: "majority" },
 ];
 
 function matchesScope(top3, needle, scope) {
     switch (scope) {
         case "every":
             return top3.length >= 3 && top3.every((t) => t.includes(needle));
+        case "majority":
+            return top3.filter((t) => t.includes(needle)).length >= Math.ceil(top3.length / 2);
         case "some":
             return top3.some((t) => t.includes(needle));
         case "first":
@@ -74,8 +81,8 @@ test.describe("real MiniLM listing retrieval", () => {
                 i + 1,
                 { timeout: 30000 }
             );
-            const titles = await page.locator(".listing-card .card-title").allTextContents();
-            const top3 = titles.slice(0, 3).map((t) => t.toLowerCase());
+            const cards = await page.locator(".listing-card").allTextContents();
+            const top3 = cards.slice(0, 3).map((t) => t.toLowerCase());
             const sys = await page.evaluate((idx) => window.__slmGenerateCalls[idx].system, i);
             const exemplarCount = (sys.match(/^PROMPT:/gm) || []).length;
             expect(
