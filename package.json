@@ -3,10 +3,14 @@
     "private": true,
     "scripts": {
         "build": "elm make src/Main.elm --output=public/elm.js",
-        "test": "playwright test",
-        "test:headed": "playwright test --headed"
+        "vendor": "node scripts/vendor.js",
+        "test": "playwright test embedding.spec.js",
+        "test:headed": "playwright test embedding.spec.js --headed",
+        "test:real": "npm run vendor && playwright test embedding.real.spec.js"
     },
     "devDependencies": {
-        "@playwright/test": "^1.48.0"
+        "@huggingface/transformers": "^4.2.0",
+        "@playwright/test": "^1.48.0",
+        "esbuild": "^0.28.0"
     }
 }

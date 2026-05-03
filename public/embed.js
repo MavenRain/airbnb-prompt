@@ -1,4 +1,13 @@
-import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
+import { env, pipeline } from "./vendor/transformers/transformers.bundle.js";
+
+env.allowRemoteModels = false;
+env.allowLocalModels = true;
+env.localModelPath = "./vendor/models/";
+env.backends.onnx.wasm.wasmPaths = "/vendor/ort/";
+
+if (!self.crossOriginIsolated) {
+    env.backends.onnx.wasm.numThreads = 1;
+}
 
 const EmbedBridge = (() => {
     let extractor = null;
