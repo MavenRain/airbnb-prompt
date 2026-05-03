@@ -21,6 +21,28 @@ const SlmBridge = (() => {
 window.SlmBridge = SlmBridge;
 `;
 
+const probes = [
+    { prompt: "chalet", needle: "chalet", scope: "every" },
+    { prompt: "machiya", needle: "machiya", scope: "every" },
+    { prompt: "casita", needle: "casita", scope: "some" },
+    { prompt: "rooftop", needle: "rooftop", scope: "some" },
+    { prompt: "luxury chalet spa sauna", needle: "luxury chalet", scope: "first" },
+    { prompt: "pool barcelona", needle: "rooftop pool", scope: "first" },
+    { prompt: "mountain valley views", needle: "mountain chalet", scope: "first" },
+];
+
+function matchesScope(top3, needle, scope) {
+    switch (scope) {
+        case "every":
+            return top3.length >= 3 && top3.every((t) => t.includes(needle));
+        case "some":
+            return top3.some((t) => t.includes(needle));
+        case "first":
+            return top3.length >= 1 && top3[0].includes(needle);
+    }
+    return false;
+}
+
 test.describe.configure({ mode: "serial", timeout: 240000 });
 
 test.describe("real MiniLM listing retrieval", () => {
@@ -30,7 +52,7 @@ test.describe("real MiniLM listing retrieval", () => {
         );
     });
 
-    test("type-keyword prompts bubble matching listings to top-3", async ({ page }) => {
+    test("semantic ranking surfaces matching listings for varied prompts", async ({ page }) => {
         await page.goto("/");
 
         await page.waitForFunction(() => window.EmbedBridge !== undefined);
@@ -43,14 +65,7 @@ test.describe("real MiniLM listing retrieval", () => {
             timeout: 180000,
         });
 
-        const probes = [
-            { prompt: "chalet", keyword: "chalet" },
-            { prompt: "machiya", keyword: "machiya" },
-            { prompt: "casita", keyword: "casita" },
-            { prompt: "rooftop", keyword: "rooftop" },
-        ];
-
-        await probes.reduce(async (prev, { prompt, keyword }, i) => {
+        await probes.reduce(async (prev, { prompt, needle, scope }, i) => {
             await prev;
             await page.locator("textarea.prompt").fill("");
             await page.locator("textarea.prompt").fill(prompt);
@@ -61,9 +76,15 @@ test.describe("real MiniLM listing retrieval", () => {
             );
             const titles = await page.locator(".listing-card .card-title").allTextContents();
             const top3 = titles.slice(0, 3).map((t) => t.toLowerCase());
+            const sys = await page.evaluate((idx) => window.__slmGenerateCalls[idx].system, i);
+            const exemplarCount = (sys.match(/^PROMPT:/gm) || []).length;
             expect(
-                top3.some((t) => t.includes(keyword)),
-                `'${prompt}' top-3 should contain a listing whose title mentions '${keyword}', got ${JSON.stringify(top3)}`
+                exemplarCount,
+                `'${prompt}' should use semantic retrieval (top-K=4 exemplars), got ${exemplarCount}`
+            ).toBeLessThanOrEqual(4);
+            expect(
+                matchesScope(top3, needle, scope),
+                `'${prompt}' top-3 ${scope} '${needle}', got ${JSON.stringify(top3)}`
             ).toBe(true);
         }, Promise.resolve());
     });

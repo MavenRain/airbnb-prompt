@@ -206,6 +206,11 @@ parsePets text =
 parseTags : String -> List Tag
 parseTags text =
     let
+        -- Phrase-to-tag mappings for the prompt parser.  Tags only feed
+        -- the non-semantic ranking path and the auto-selected listing;
+        -- matchAgainstSemantic does not read them, so adding entries
+        -- here will not change listing-card ranking once embeddings are
+        -- available.
         synonymTable =
             [ ( Beachfront, [ "beachfront", "beach", "ocean", "oceanfront", "seaside", "seafront", "by the sea" ] )
             , ( PetFriendly, [ "pet-friendly", "pet friendly", "dog-friendly", "dog friendly", "pets ok", "pets allowed", "dog ok", "cat ok" ] )
